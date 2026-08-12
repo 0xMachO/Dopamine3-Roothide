@@ -604,14 +604,15 @@ CFPropertyListRef MGCopyAnswer(CFStringRef);
                     [self unregisterJailbreakApps];
                     [self setPrivatePrebootProtected:NO];
                     [self setFakelibMounted:NO];
-                    jbclient_platform_set_systemwide_domain_enabled(false);
+                    // jbclient_platform_set_systemwide_domain_enabled is disabled on
+                    // 3.x (client impl and jbserver handler are stubbed/absent).
                 }
                 [[NSFileManager defaultManager] removeItemAtPath:@"/var/jb" error:nil];
             }
             else {
                 [[NSFileManager defaultManager] createSymbolicLinkAtPath:@"/var/jb" withDestinationPath:JBROOT_PATH(@"/") error:nil];
                 if ([self isJailbroken]) {
-                    jbclient_platform_set_systemwide_domain_enabled(true);
+                    // jbclient_platform_set_systemwide_domain_enabled is disabled on 3.x.
                     [self setFakelibMounted:YES];
                     [self setPrivatePrebootProtected:YES];
                     [self refreshJailbreakApps];
