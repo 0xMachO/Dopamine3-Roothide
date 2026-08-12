@@ -118,7 +118,8 @@ xpc_object_t jbuserconfig_get_value(const char *key)
 	return NULL;
 }
 
-static kSpawnConfig spawn_config_for_executable(const char* path, char *const argv[restrict])
+// non-static: also called from roothider_main.c (2.x had it non-static)
+kSpawnConfig spawn_config_for_executable(const char* path, char *const argv[restrict])
 {
 	// Blacklist to ensure general system stability
 	// I don't like this but for some processes it seems neccessary

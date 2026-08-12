@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int envbuf_len(const char *envp[])
+int envbuf_len(const char *const envp[])
 {
 	if (envp == NULL) return 1;
 
@@ -13,7 +13,7 @@ int envbuf_len(const char *envp[])
 	return k;
 }
 
-char **envbuf_mutcopy(const char *envp[])
+char **envbuf_mutcopy(const char *const envp[])
 {
 	if (envp == NULL) return NULL;
 
@@ -39,7 +39,7 @@ void envbuf_free(char *envp[])
 	free(envp);
 }
 
-int envbuf_find(const char *envp[], const char *name)
+int envbuf_find(const char *const envp[], const char *name)
 {
 	if (envp) {
 		unsigned long nameLen = strlen(name);
@@ -60,7 +60,7 @@ int envbuf_find(const char *envp[], const char *name)
 	return -1;
 }
 
-const char *envbuf_getenv(const char *envp[], const char *name)
+const char *envbuf_getenv(const char *const envp[], const char *name)
 {
 	if (envp) {
 		unsigned long nameLen = strlen(name);

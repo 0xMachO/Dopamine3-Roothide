@@ -12,6 +12,7 @@
 #include "common/common.h"
 #include "common/envbuf.h"
 #include "common/private.h"
+#include "common/inline.h"
 #include "roothider.h"
 #include <libjailbreak/jbclient_xpc.h>
 #include <libjailbreak/roothider/jailbreakd.h>
@@ -187,7 +188,7 @@ int posix_spawnattr_getprocesstype_np(const posix_spawnattr_t * __restrict, int 
 int roothide_systemhook___posix_spawn_prehook(pid_t *restrict pidp, const char *restrict path, struct _posix_spawn_args_desc *desc, char *const argv[restrict], char *const envp[restrict], void *orig, int (*trust_binary)(const char *path), int (*set_process_debugged)(uint64_t pid, bool fullyDebugged), double jetsamMultiplier)
 {
 	if(!path) {
-		return __posix_spawn_orig(pidp, path, desc, argv, envp);
+		return __posix_spawn_inline(pidp, path, desc, argv, envp);
 	}
 
 	if(!desc || !desc->attrp) {
@@ -283,7 +284,7 @@ int roothide_systemhook___posix_spawn_posthook(pid_t *restrict pidp, const char 
 	}
 
 	int pid = 0;
-	int ret = __posix_spawn_orig(&pid, path, desc, argv, envc);
+	int ret = __posix_spawn_inline(&pid, path, desc, argv, envc);
 	if (pidp) *pidp = pid;
 
 	envbuf_free(envc);
@@ -339,7 +340,7 @@ int roothide_systemhook___execve_posthook(const char *path, char *const argv[], 
 		envbuf_setenv(&envc, "DYLD_IN_CACHE", "0");
 	}
 	
-	int ret = __execve_orig(path, argv, envc);
+	int ret = __execve_inline(path, argv, envc);
 	int olderr = errno;
 	
 	envbuf_free(envc);

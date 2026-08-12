@@ -31,7 +31,7 @@ int jbdSystemwideLog(const char* fmt, ...);
  * resume: they SIGCONT the child when `resume` is true (the child was spawned
  * START_SUSPENDED by the caller and would otherwise hang forever). Only call them
  * for a child you actually suspended. jbdExecTraceStart/Cancel report
- * *traced/*detached = true immediately, so callers that busy-wait on those flags
+ * *traced / *detached = true immediately, so callers that busy-wait on those flags
  * exit right away. */
 int jbdSpawnPatchChild(int pid, bool resume);
 int jbdSpawnExecStart(const char* execfile, bool resume);
