@@ -107,16 +107,17 @@ void roothide_launchd_postinit(bool firstLoad)
 		if (__builtin_available(iOS 16.0, *))
 		{
 			hideDeveloperMode();
-		}	#ifdef __arm64e__
-		if (!__builtin_available(iOS 16.0, *))
-		{
-			if(roothide_config_set_spinlock_fix(dyld_patch_enabled()) != 0) {
-				/* Non-fatal: log and continue degraded. (iOS 15 arm64e path only,
-				 * not reached on the A13/iOS 18.3.2 target.) */
-				JBLogError("roothide_config_set_spinlock_fix failed (continuing degraded)");
-			}
 		}
-	#endif
+#ifdef __arm64e__
+			if (!__builtin_available(iOS 16.0, *))
+			{
+				if(roothide_config_set_spinlock_fix(dyld_patch_enabled()) != 0) {
+					/* Non-fatal: log and continue degraded. (iOS 15 arm64e path only,
+					 * not reached on the A13/iOS 18.3.2 target.) */
+					JBLogError("roothide_config_set_spinlock_fix failed (continuing degraded)");
+				}
+			}
+#endif
 	}
 
 	if (__builtin_available(iOS 16.0, *))
@@ -146,7 +147,10 @@ void roothide_launchd_postinit(bool firstLoad)
 
 	loadAppStoredIdentifiers();
 
-	orig_xpc_dictionary_create_reply = xpc_dictionary_create_reply;
+	// The SDK's xpc_dictionary_create_reply carries XPC_RETURNS_RETAINED +
+	// nullability attributes; cast to our plain pointer type (clang 16+ treats
+	// the mismatch as an error).
+	orig_xpc_dictionary_create_reply = (typeof(orig_xpc_dictionary_create_reply))xpc_dictionary_create_reply;
 	litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, (void *)xpc_dictionary_create_reply, (void *)new_xpc_dictionary_create_reply, NULL);
 	orig_xpc_pipe_routine_reply = xpc_pipe_routine_reply;
 	litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, (void *)xpc_pipe_routine_reply, (void *)new_xpc_pipe_routine_reply, NULL);

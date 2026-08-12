@@ -5,6 +5,7 @@
 #include <libgen.h>
 #include <sys/sysctl.h>
 #include <sys/proc_info.h>
+#include <sandbox.h>
 
 #include <litehook.h>
 
@@ -15,7 +16,10 @@
 #include <libjailbreak/jbclient_xpc.h>
 #include <libjailbreak/roothider/jailbreakd.h>
 
-const char* HOOK_DYLIB_PATH = NULL;
+// NOTE: 3.x systemhook's common.h defines HOOK_DYLIB_PATH as the compile-time
+// macro "/usr/lib/systemhook.dylib"; our runtime override variable is therefore
+// named gHookDylibPath to avoid the token collision (2.x had no such macro).
+const char* gHookDylibPath = NULL;
 
 bool dyld_patch_fallback_enabled = false;
 
@@ -165,7 +169,7 @@ void trust_insert_libraries(char** envc)
 	if(!DYLD_INSERT_LIBRARIES) return;
 
 	string_enumerate_components(DYLD_INSERT_LIBRARIES, ":", ^(const char *path, bool *stop) {
-		if (strcmp(path, HOOK_DYLIB_PATH) != 0) {
+		if (strcmp(path, gHookDylibPath) != 0) {
 			jbclient_trust_library_recurse(path, NULL);
 		}
 	});
@@ -434,7 +438,7 @@ void roothide_init()
 		}
 	}
 
-	HOOK_DYLIB_PATH = strdup(dyld_image_path_containing_address(&__dso_handle));
+	gHookDylibPath = strdup(dyld_image_path_containing_address(&__dso_handle));
 
 	if(parse_dyldhook_jbinfo(NULL, NULL, NULL, NULL) != 0)
 	{
