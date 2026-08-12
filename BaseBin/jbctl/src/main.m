@@ -18,7 +18,7 @@ Available commands:\n\
 	proc_set_debugged <pid>\t\tMarks the process with the given pid as being debugged, allowing invalid code pages inside of it\n\
 	trustcache info\t\t\tPrint info about all jailbreak related trustcaches and the cdhashes contained in them\n\
 	trustcache clear\t\tClears all existing cdhashes from the jailbreaks trustcache\n\
-	trustcache add <cdhash>\t\tAdd an arbitrary cdhash to the jailbreaks trustcache\n\
+	trustcache add /path/to/macho\t\tAdd the cdhash of a macho to the jailbreaks trustcache\n\
 	update <tipa/basebin/tarball> <path>\tInitiates a jailbreak update either based on a TIPA, based on a basebin.tar file or based on a standalone tarball, TIPA installation depends on TrollStore, afterwards it triggers a userspace reboot\n");
 }
 
@@ -116,17 +116,17 @@ int main(int argc, char* argv[])
 				print_usage();
 				return 2;
 			}
-			const char *cdhashString = argv[3];
-			if (strlen(cdhashString) != (sizeof(cdhash_t) * 2)) {
-				printf("ERROR: passed cdhash has wrong length\n");
+			// roothide (2.x behavior): trust a macho by path. The 3.x base's
+			// cdhash-based add calls jbclient_root_trustcache_add_cdhash, which is
+			// disabled on 3.x (client impl and jbserver handler are both absent).
+			const char *filepath = argv[3];
+			if (access(filepath, F_OK) != 0) {
+				printf("ERROR: passed macho path does not exist\n");
+				printf("\n\n");
+				print_usage();
 				return 2;
 			}
-			cdhash_t cdhash;
-			if (convert_hex_string_to_data(cdhashString, &cdhash)) {
-				printf("ERROR: passed cdhash is malformed\n");
-				return 2;
-			}
-			return jbclient_root_trustcache_add_cdhash(cdhash, sizeof(cdhash));
+			return jbclient_dyld_patch_enabled() ? jbclient_trust_file_by_path(filepath) : jbclient_trust_executable_recurse(filepath, NULL);
 		}
 	}
 	else if (!strcmp(cmd, "reboot_userspace")) {
