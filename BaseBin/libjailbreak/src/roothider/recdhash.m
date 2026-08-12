@@ -11,7 +11,7 @@
 #include "common.h"
 #include "log.h"
 
-extern MachO* fat_find_preferred_slice(Fat* fat);
+extern MachO* roothide_fat_find_preferred_slice(Fat* fat);
 
 extern CS_DecodedBlob *csd_superblob_find_best_code_directory(CS_DecodedSuperBlob *decodedSuperblob);
 extern bool code_directory_calculate_page_hash(CS_CodeDirectory *codeDir, MachO *macho, int slot, uint8_t *pageHashOut);
@@ -101,7 +101,7 @@ int ensure_randomized_cdhash_for_slice(const char* inputPath, uint64_t offset, v
 		return -1;
 	}
 
-    MachO *macho = (offset==-1) ? fat_find_preferred_slice(fat) : fat_find_slice_by_offset(fat, offset);
+    MachO *macho = (offset==-1) ? roothide_fat_find_preferred_slice(fat) : fat_find_slice_by_offset(fat, offset);
 	if(!macho) {
 		JBLogError("Error: failed to find preferred slice: %s\n", inputPath);
 		fat_free(fat);

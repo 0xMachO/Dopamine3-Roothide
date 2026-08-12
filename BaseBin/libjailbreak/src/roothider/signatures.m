@@ -11,7 +11,11 @@
 
 #define DEBUG_LOG(...) //JBLogDebug(__VA_ARGS__)
 
-MachO* fat_find_preferred_slice(Fat *fat)
+// roothide-specific slice selection: unlike ChOma's fat_find_preferred_slice
+// (Host.c), an old-ABI arm64e MH_EXECUTE slice is always discarded. Named to
+// avoid a duplicate-symbol clash with ChOma when it is compiled directly
+// (dopamine CLI).
+MachO* roothide_fat_find_preferred_slice(Fat *fat)
 {
 	cpu_type_t cputype;
 	cpu_subtype_t cpusubtype;
@@ -69,7 +73,7 @@ NSString* resolveRpaths(NSString *loadPath, NSString *mainExecutablePath, NSArra
 	{
 		Fat *fat = fat_init_from_path(loaderPath.fileSystemRepresentation);
 		if (fat) {
-			MachO *macho = fat_find_preferred_slice(fat);
+			MachO *macho = roothide_fat_find_preferred_slice(fat);
 			if (macho) {
 				macho_enumerate_rpaths(macho, ^(const char *rpathCStr, bool *stop) {
 					NSString* possiblePath = [loadPath stringByReplacingCharactersInRange:NSMakeRange(0,sizeof("@rpath")-1) withString:@(rpathCStr)];
@@ -227,7 +231,7 @@ static void recurse_handler(NSString *loadPath, NSString *loaderPath, NSString *
 		}
 	}
 	if (!macho) {
-		macho = fat_find_preferred_slice(fat);
+		macho = roothide_fat_find_preferred_slice(fat);
 		if (!macho) {
 			JBLogError("Failed to find preferred slice for file: %s", realLoadPath.fileSystemRepresentation);
 			fat_free(fat);
