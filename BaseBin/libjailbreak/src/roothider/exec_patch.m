@@ -20,8 +20,14 @@ void event_handler(int kq)
     {
         struct kevent event = {0};
         int ret = kevent(kq, NULL, 0, &event, 1, NULL);
-        assert(ret == 1);
-        assert(event.filter == EVFILT_PROC);
+        if (ret != 1) {
+            // 3.x-native: never assert from a library loaded into launchd.
+            JBLogError("[execPatch] kevent returned %d", ret);
+            continue;
+        }
+        if (event.filter != EVFILT_PROC) {
+            continue;
+        }
 
         pid_t pid = (pid_t)event.ident;
 
@@ -46,9 +52,8 @@ void event_handler(int kq)
                 if (resume.boolValue) kill(pid, SIGCONT);
             } else {
                 JBLogError("[execPatch] failed to patch for process: %d", pid);
-                //we hosted the spawned(SETEXEC) process so we have to deal with it if patching failed
-                kill(pid, SIGQUIT); //core dump
-                kill(pid, SIGKILL);
+                // 3.x-native: roothide_patch_proc is a no-op path on 3.x; never
+                // SIGKILL spawned processes from a launchd-loaded library.
             }
         }
 
@@ -68,7 +73,9 @@ void initExecPatch()
         gExecPatchDataQueue = dispatch_queue_create("roothide.execpatch.data-queue", DISPATCH_QUEUE_SERIAL);
 
         kq = kqueue();
-        assert(kq != -1);
+        if (kq == -1) {
+            JBLogError("[execPatch] kqueue failed: %s", strerror(errno));
+        }
 
         queue = dispatch_queue_create("roothide.execpatch.event-queue", DISPATCH_QUEUE_SERIAL);
         dispatch_async(queue, ^{

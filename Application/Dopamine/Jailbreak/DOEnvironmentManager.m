@@ -277,6 +277,13 @@ CFPropertyListRef MGCopyAnswer(CFStringRef);
 {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
+        /********************** roothide *************************/
+        // Only consider the device jailbroken when our launchdhook (merged jbserver domain)
+        // reports the roothide jailbreak as active. This mirrors the 2.x-roothide gate in
+        // isJailbroken and prevents stale/foreign jailbreak state from being reported.
+        if (!jbclient_roothide_jailbroken()) return;
+        /********************** roothide *************************/
+
         char *jbVersionC = NULL;
         _isJailbroken = jbclient_dopamine_is_jailbroken(&jbVersionC);
         if (jbVersionC) {

@@ -12,9 +12,7 @@
 .align 4
 
 
-//MAKE_TRAMPOLINE(strncmp)
-MAKE_TRAMPOLINE(strlcpy)
-MAKE_TRAMPOLINE(strlcat)
+// strlcpy/strlcat trampolines are already provided by main.S in 3.x (upstream), so they are not redefined here
 
 .global _MACHOMERGER_ORIG__ZN5dyld46Loader18expandAtLoaderPathERNS_12RuntimeStateEPKcRKNS0_11LoadOptionsEPKS0_bPc
 .global _MACHOMERGER_HOOKTRAMPOLINE__ZN5dyld46Loader18expandAtLoaderPathERNS_12RuntimeStateEPKcRKNS0_11LoadOptionsEPKS0_bPc

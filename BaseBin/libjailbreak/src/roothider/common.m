@@ -360,7 +360,12 @@ void ensure_jbroot_symlink(const char* filepath)
 		return;
 
 	char realfpath[PATH_MAX]={0};
-	assert(realpath(filepath, realfpath) != NULL);
+	if (realpath(filepath, realfpath) == NULL) {
+		// Non-fatal: these helpers run in launchd context (binary trust paths);
+		// an assert here would abort pid 1 and panic the device.
+		JBLogError("ensure_jbroot_symlink: realpath failed for %s (%s)", filepath, strerror(errno));
+		return;
+	}
 
 	char realdirpath[PATH_MAX+1]={0};
 	dirname_r(realfpath, realdirpath);
@@ -369,7 +374,10 @@ void ensure_jbroot_symlink(const char* filepath)
 	}
 
 	char jbrootpath[PATH_MAX+1]={0};
-	assert(realpath(JBROOT_PATH("/"), jbrootpath) != NULL);
+	if (realpath(JBROOT_PATH("/"), jbrootpath) == NULL) {
+		JBLogError("ensure_jbroot_symlink: realpath failed for jbroot (%s)", strerror(errno));
+		return;
+	}
 	if(jbrootpath[0] && jbrootpath[strlen(jbrootpath)-1] != '/') {
 		strlcat(jbrootpath, "/", sizeof(jbrootpath));
 	}
@@ -380,7 +388,10 @@ void ensure_jbroot_symlink(const char* filepath)
 	}
 
 	struct stat jbrootst;
-	assert(stat(jbrootpath, &jbrootst) == 0);
+	if (stat(jbrootpath, &jbrootst) != 0) {
+		JBLogError("ensure_jbroot_symlink: stat failed for %s (%s)", jbrootpath, strerror(errno));
+		return;
+	}
 	
 	char sympath[PATH_MAX];
 	snprintf(sympath,sizeof(sympath),"%s/.jbroot", realdirpath);
@@ -397,7 +408,10 @@ void ensure_jbroot_symlink(const char* filepath)
 					return;
 			}
 
-			assert(unlink(sympath) == 0);
+			if (unlink(sympath) != 0) {
+				JBLogError("ensure_jbroot_symlink: unlink failed for %s (%s)", sympath, strerror(errno));
+				return;
+			}
 			
 		} else {
 			//not a symlink? just let it go
@@ -639,7 +653,7 @@ bool otherJailbreakActived(bool postexploit)
         }
     } else {
         JBLogError("proc_pidpath failed for pid 1: %d", ret);
-        assert(!postexploit);
+        // 3.x-native: never assert from launchd context; continue remaining checks.
         // return true;
     }
 
@@ -790,6 +804,9 @@ NSMutableArray<NSString*>* StoredAppIdentifiers = nil;
 
 void loadAppStoredIdentifiers()
 {
+    // Init first: is_safe_bundle_identifier relies on a non-nil list; on failure
+    // we keep the (empty) list instead of aborting from launchd context (panic/
+    // bootloop). Identifiers simply fall back to "not stored" = hidden.
     StoredAppIdentifiers = [[NSMutableArray alloc] init];
 
     NSFileManager *fileManager = [NSFileManager defaultManager];
@@ -799,7 +816,7 @@ void loadAppStoredIdentifiers()
     NSArray *appContainers = [fileManager contentsOfDirectoryAtPath:applicationsPath error:&error];
     if (error) {
         JBLogError("Error reading Application directory: %s", error.description.UTF8String);
-        abort();
+        return;
     }
     
     for (NSString *containerUUID in appContainers) 
@@ -949,7 +966,10 @@ bool is_safe_bundle_identifier(const char* identifier)
         return false;
     }
 
-    assert(StoredAppIdentifiers != nil);
+    if (!StoredAppIdentifiers) {
+        // Never assert from launchd context; treat as not-stored.
+        return false;
+    }
     if([StoredAppIdentifiers containsObject:@(identifier)]) {
         return true;
     }

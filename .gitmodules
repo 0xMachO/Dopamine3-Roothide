@@ -3,7 +3,8 @@
 	url = https://github.com/opa334/ChOma
 [submodule "BaseBin/XPF"]
 	path = BaseBin/XPF
-	url = https://github.com/opa334/XPF
+	# roothide support (namecache/amfi_oids finders) hosted on our fork: opa334/XPF + commit fbd3de3 (branch roothide-support)
+	url = https://github.com/Phantom-fahad/XPF
 [submodule "Exploits/kfd/src/kfd"]
 	path = Application/Dopamine/Dopamine/Exploits/kfd/kfd
 	url = https://github.com/opa334/kfd

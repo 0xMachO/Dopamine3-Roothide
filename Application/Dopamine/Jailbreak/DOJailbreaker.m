@@ -85,7 +85,7 @@ typedef NS_ENUM(NSInteger, JBErrorCode) {
     
     int r = xpf_start_with_kernel_path(kernelPath.fileSystemRepresentation, sptmPath ? sptmPath.fileSystemRepresentation : NULL, txmPath ? txmPath.fileSystemRepresentation : NULL);
     if (r == 0) {
-        char *sets[] = {
+        char *sets[99] = {
             "translation",
             "trustcache",
             "sandbox",
@@ -100,8 +100,8 @@ typedef NS_ENUM(NSInteger, JBErrorCode) {
             NULL,
         };
 
-        uint32_t idx = 0;
-        while(sets[++idx]);
+        // 7 = count of the base sets above; literal match to the 2.x-roothide pattern.
+        uint32_t idx = 7;
 
         if (xpf_set_is_supported("devmode")) {
             sets[idx++] = "devmode"; 
@@ -115,6 +115,16 @@ typedef NS_ENUM(NSInteger, JBErrorCode) {
         if (xpf_set_is_supported("perfkrw")) {
             sets[idx++] = "perfkrw";
         }
+
+        /********************** roothide *************************/
+        sets[idx++] = "namecache";
+
+        if (xpf_set_is_supported("amfi_oids")) {
+            sets[idx++] = "amfi_oids";
+        }
+
+        sets[idx] = NULL;
+        /********************** roothide *************************/
 
         _systemInfoXdict = xpf_construct_offset_dictionary((const char **)sets);
         if (_systemInfoXdict) {

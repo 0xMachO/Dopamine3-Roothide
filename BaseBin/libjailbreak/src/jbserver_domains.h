@@ -49,14 +49,21 @@ enum {
 };
 
 // Domain: Dopamine (merged roothide domain, index in gGlobalServer)
-// Reachable exclusively from Dopamine app
+// The Dopamine actions are only reachable from the Dopamine app itself;
+// the roothide actions are reachable from any non-blacklisted process.
+// NOTE: the enum values are 1-based action indices into gDopamineDomain's action
+// array (see jbserver_received_xpc_message in jbserver.c) and are sent verbatim by
+// the jbclient_* helpers, so they must match the position of each handler in that
+// array. 2.x used a separate roothide domain with its own fresh 1..9 range; the
+// merged domain keeps a single contiguous range, hence the roothide actions
+// continue at 4 instead of 101.
 #define JBS_DOMAIN_DOPAMINE 5
 #define JBS_DOMAIN_ROOTHIDE JBS_DOMAIN_DOPAMINE
 enum {
     JBS_DOPAMINE_IS_JAILBROKEN = 1,
     JBS_DOPAMINE_GET_ROOT,
     JBS_DOPAMINE_DROP_ROOT,
-    JBS_ROOTHIDE_JAILBROKEN_CHECK = 101,
+    JBS_ROOTHIDE_JAILBROKEN_CHECK = 4,
     JBS_ROOTHIDE_PALEHIDE_PRESENT,
     JBS_ROOTHIDE_BLACKLIST_CHECK,
     JBS_ROOTHIDE_JAILBREAKD_LOOKUP,

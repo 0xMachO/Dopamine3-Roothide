@@ -14,11 +14,16 @@
 #include <libjailbreak/codesign.h>
 #include <libjailbreak/txm.h>
 
+#include <signal.h>
+#include <libjailbreak/roothider.h>
+
+/*
 bool gSystemwideDomainEnabled = true;
 void systemwide_domain_set_enabled(bool enabled)
 {
 	gSystemwideDomainEnabled = enabled;
 }
+*/
 
 extern bool string_has_prefix(const char *str, const char* prefix);
 extern bool string_has_suffix(const char* str, const char* suffix);
@@ -58,6 +63,7 @@ char *combine_strings(char separator, char **components, int count)
 	return outString;
 }
 
+/*
 bool systemwide_domain_allowed(audit_token_t clientToken)
 {
 	if (!gSystemwideDomainEnabled) {
@@ -75,6 +81,7 @@ bool systemwide_domain_allowed(audit_token_t clientToken)
 	}
 	return true;
 }
+*/
 
 static int systemwide_get_jbroot(char **rootPathOut)
 {
@@ -114,7 +121,7 @@ int systemwide_trust_file(audit_token_t *processToken, int rfd, struct siginfo *
 	int fsr = fstatfs(fd, &fsb);
 	if (fsr == 0) {
 		// Anything on the rootfs or fakelib mount point can be ignored as it's guaranteed to already be in trustcache
-		if (!strcmp(fsb.f_mntonname, "/") || !strcmp(fsb.f_mntonname, "/usr/lib")) {
+		if (!strcmp(fsb.f_mntonname, "/") /*|| !strcmp(fsb.f_mntonname, "/usr/lib")*/) {
 			close(fd);
 			return 0;
 		}
@@ -193,6 +200,7 @@ int systemwide_process_checkin(audit_token_t *processToken, char **rootPathOut, 
 	systemwide_get_jbroot(rootPathOut);
 	systemwide_get_boot_uuid(bootUUIDOut);
 
+/*
 	// Generate sandbox extensions for the requesting process
 	char *sandboxExtensionsArr[] = {
 		// Make /var/jb readable and executable
@@ -209,9 +217,23 @@ int systemwide_process_checkin(audit_token_t *processToken, char **rootPathOut, 
 			free(sandboxExtensionsArr[i]);
 		}
 	}
+*/
+
+/************************************ roothide specific ************************************************/
+	uint32_t csflags = 0;
+    csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
+	bool isPlatformProcess = (csflags & CS_PLATFORM_BINARY) != 0;
+
+	// Generate sandbox extensions for the requesting process
+	*sandboxExtensionsOut = generate_sandbox_extensions(processToken, isPlatformProcess);
+	if(!(*sandboxExtensionsOut)) {
+		JBLogError("Failed to generate sandbox extensions for process %d", pid);
+	}
 
 	bool fullyDebugged = false;
-	if (string_has_prefix(procPath, "/private/var/containers/Bundle/Application") || string_has_prefix(procPath, JBROOT_PATH("/Applications"))) {
+	if (isRemovableBundlePath(procPath) || isSubPathOf(procPath, JBROOT_PATH("/Applications"))) {
+/*************************************** roothide specific *********************************/
+
 		// This is an app, enable CS_DEBUGGED based on user preference
 		if (jbsetting(markAppsAsDebugged)) {
 			fullyDebugged = true;
@@ -293,6 +315,10 @@ int systemwide_process_checkin(audit_token_t *processToken, char **rootPathOut, 
 	else if (is_dopamine_app(procPath)) {
 		// platformize
 		proc_csflags_set(proc, CS_PLATFORM_BINARY);
+
+/********************* roothide specific ********************/
+		proc_csflags_set(proc, CS_INSTALLER);
+/*************************************************************/
 	}
 
 	xpc_object_t customTrustObj = xpc_copy_entitlement_for_token("jb.pmap_cs.custom_trust", processToken);
@@ -383,13 +409,14 @@ int systemwide_fork_fix(audit_token_t *parentToken, uint64_t childPid)
 		retval = 2;
 		// Safety check to ensure we are actually coming from fork
 		if (kread_ptr(childProc + koffsetof(proc, pptr)) == parentProc) {
-			uint64_t parentTask  = proc_task(parentProc);
-			uint64_t parentVmMap = kread_ptr(parentTask + koffsetof(task, map));
-			uint64_t parentPmap  = kread_ptr(parentVmMap + koffsetof(vm_map, pmap));
-
 			uint64_t childTask  = proc_task(childProc);
 			uint64_t childVmMap = kread_ptr(childTask + koffsetof(task, map));
-			uint64_t childPmap  = kread_ptr(childVmMap + koffsetof(vm_map, pmap));
+
+			uint64_t parentTask  = proc_task(parentProc);
+			uint64_t parentVmMap = kread_ptr(parentTask + koffsetof(task, map));
+
+			uint64_t parentPmap  = kread_ptr(parentVmMap + koffsetof(vm_map, pmap));
+			uint64_t childPmap   = kread_ptr(childVmMap + koffsetof(vm_map, pmap));
 
 			cs_allow_invalid(childProc, false);
 
@@ -534,7 +561,7 @@ static int systemwide_persona_fix(audit_token_t *callerToken, int childPid, uid_
 }
 
 struct jbserver_domain gSystemwideDomain = {
-	.permissionHandler = systemwide_domain_allowed,
+	.permissionHandler = roothide_domain_allowed,
 	.actions = {
 		// JBS_SYSTEMWIDE_GET_JBROOT
 		{

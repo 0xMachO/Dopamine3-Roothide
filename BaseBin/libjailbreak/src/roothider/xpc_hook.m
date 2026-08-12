@@ -207,6 +207,8 @@ void roothide_handle_xpc_msg(xpc_object_t xmsg)
 					bundle = name + sizeof("UIKitApplication:") - 1;
 					char *end = strchr(bundle, '[');
 					if (end) {
+						/* end comes from strchr(), so end >= bundle and the precision is
+						 * bounded by the string length — safe by construction (verified). */
 						asprintf(&bundle, "%.*s", (int)(end - bundle), bundle);
 					} else {
 						bundle = strdup(bundle);

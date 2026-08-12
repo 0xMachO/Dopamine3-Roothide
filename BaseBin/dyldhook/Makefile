@@ -2,10 +2,13 @@ CC = clang
 
 CFLAGS = -I../.include -isysroot $(shell xcrun --sdk iphoneos --show-sdk-path) -miphoneos-version-min=15.0 -Wno-deprecated-declarations -fno-stack-check -D_FORTIFY_SOURCE=0 -O2
 LDFLAGS = -shared -Xlinker -add_split_seg_info
-FILES = $(wildcard src/*.c src/*.S ../libjailbreak/src/jbclient_mach.c)
+# spinlock_fix.c is iOS 15 arm64e only, it is added via FILES_IOS15_ARM64E below
+# fakelib_redirect.c stays in the generic build (its hook is guarded with IOS < 18 internally)
+FILES = $(filter-out src/spinlock_fix.c,$(wildcard src/*.c)) $(wildcard src/*.S ../libjailbreak/src/jbclient_mach.c)
 FILES_IOS15 = $(wildcard src/generated/ios15/*.c)
 FILES_IOS16-17 = $(wildcard src/generated/ios16-17/*.c)
 FILES_IOS18+ = $(wildcard src/generated/ios18+/*.c)
+FILES_IOS15_ARM64E = src/spinlock_fix.c
 
 all: dyldhook_merge.arm64e.iOS15.dylib dyldhook_merge.arm64.iOS15.dylib dyldhook_merge.arm64e.iOS16-17.dylib dyldhook_merge.arm64.iOS16-17.dylib dyldhook_merge.arm64e.iOS18+.dylib dyldhook_merge.arm64.iOS18+.dylib
 
@@ -39,7 +42,7 @@ dyldhook_merge.arm64.iOS16-17.dylib: $(FILES) $(FILES_IOS16-17)
 	@ldid -Cadhoc -S $@
 	$(call CHECK_SELF_CONTAINED,$@)
 
-dyldhook_merge.arm64e.iOS15.dylib: $(FILES) $(FILES_IOS15)
+dyldhook_merge.arm64e.iOS15.dylib: $(FILES) $(FILES_IOS15) $(FILES_IOS15_ARM64E)
 	$(CC) -arch arm64e $(CFLAGS) -DIOS=15 $(LDFLAGS) -o $@ $^
 	@ldid -Cadhoc -S $@
 	$(call CHECK_SELF_CONTAINED,$@)

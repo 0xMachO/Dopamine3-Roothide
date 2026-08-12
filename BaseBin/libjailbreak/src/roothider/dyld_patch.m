@@ -142,8 +142,9 @@ int task_set_dyld_info(uint64_t task, uint64_t addr, uint64_t size)
     });
 
     if(all_image_info_addr_offset==0 || all_image_info_size_offset==0) {
+        // 3.x-native: fail gracefully instead of aborting (krw paths are
+        // unreachable via jbd no-ops, but never panic if re-armed).
         JBLogError("invalid all_image_info_addr/size offset");
-        abort();
         return -1;
     }
 
@@ -152,7 +153,6 @@ int task_set_dyld_info(uint64_t task, uint64_t addr, uint64_t size)
         kwritebuf(task + info_offset, info, sizeof(info));
     } else if(task != proc_task(proc_find(1))) {
         JBLogError("invalid info offset");
-        abort();
         return -1;
     }
 
@@ -598,8 +598,10 @@ int proc_patch_dyld_internal(pid_t pid, bool spinlockFixOnly)
 
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        assert((stockDyldInfo=loadDyldInfo("/usr/lib/dyld")) != NULL);
-        assert((patchedDyldInfo=loadDyldInfo(JBROOT_PATH("/basebin/.fakelib/dyld"))) != NULL);
+        // 3.x-native: NULL is handled gracefully below (returns -1); never
+        // assert from a library that is loaded into launchd.
+        stockDyldInfo = loadDyldInfo("/usr/lib/dyld");
+        patchedDyldInfo = loadDyldInfo(JBROOT_PATH("/basebin/.fakelib/dyld"));
     });
 
     if(stockDyldInfo == NULL || patchedDyldInfo == NULL) {
@@ -656,8 +658,10 @@ int proc_patch_dyld_internal(pid_t pid, bool spinlockFixOnly)
             iOS15Arm64e = true;
         }
 #endif
-        assert(iOS15Arm64e == true);
-        assert(dyld_patch_enabled());
+        if (!iOS15Arm64e || !dyld_patch_enabled()) {
+            JBLogError("spinlock fix requested but not applicable");
+            goto failed;
+        }
 
         uint64_t loadDyldCache_old = dyld_address + stockDyldInfo->loadDyldCache_function;
         uint64_t loadDyldCache_new = remoteLoadAddress + patchedDyldInfo->loadDyldCache_function;

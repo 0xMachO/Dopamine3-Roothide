@@ -198,8 +198,15 @@ int unsandbox2(const char* dir, const char* file)
 
 	uint64_t kernelslide = gSystemInfo.kernelConstant.slide;
 	JBLogDebug("kernelslide=%llx\n", kernelslide);
-	uint64_t nchashtbl = kread64(ksymbol(nchashtbl));
-	uint64_t nchashmask = kread64(ksymbol(nchashmask));
+	uint64_t nchashtblSym = ksymbol(nchashtbl);
+	uint64_t nchashmaskSym = ksymbol(nchashmask);
+	if (!nchashtblSym || !nchashmaskSym) {
+		// kread64(0) would read kernel VA 0 and panic; fail the unsandbox instead.
+		JBLogError("unsandbox2: namecache symbols missing, aborting");
+		goto failed;
+	}
+	uint64_t nchashtbl = kread64(nchashtblSym);
+	uint64_t nchashmask = kread64(nchashmaskSym);
 	JBLogDebug("nchashtbl=%llx nchashmask=%llx\n", nchashtbl, nchashmask);
 	// for(int i=0; i<nchashmask; i++) {
 	// 	JBLogDebug("hash[%d]=%llx\n", i, kread64(nchashtbl+i*8));
@@ -229,7 +236,10 @@ int unsandbox2(const char* dir, const char* file)
 			kwrite64((uint64_t)filenc.nc_entry.tqe_next+offsetof(struct namecache, nc_entry.tqe_prev), (uint64_t)filenc.nc_entry.tqe_prev);
 		} else {
 			//(head)->tqh_last = (elm)->field.tqe_prev;
-			abort();
+			// 3.x-native: never abort (kernel panic / bootloop); fail the
+			// unsandbox operation instead.
+			JBLogError("unsandbox2: filenc nc_entry tail broken, aborting");
+			goto failed;
 		}
 		//*(elm)->field.tqe_prev = TAILQ_NEXT((elm), field);
 		kwrite64((uint64_t)filenc.nc_entry.tqe_prev, (uint64_t)filenc.nc_entry.tqe_next);
@@ -289,7 +299,10 @@ int unsandbox2(const char* dir, const char* file)
 			kwrite64((uint64_t)filenc.nc_entry.tqe_next+offsetof(struct namecache, nc_entry.tqe_prev), (uint64_t)filenc.nc_entry.tqe_prev);
 		} else {
 			//(head)->tqh_last = (elm)->field.tqe_prev;
-			abort();
+			// 3.x-native: never abort (kernel panic / bootloop); fail the
+			// unsandbox operation instead.
+			JBLogError("unsandbox2: filenc nc_entry tail broken, aborting");
+			goto failed;
 		}
 		//*(elm)->field.tqe_prev = TAILQ_NEXT((elm), field);
 		kwrite64((uint64_t)filenc.nc_entry.tqe_prev, (uint64_t)filenc.nc_entry.tqe_next);

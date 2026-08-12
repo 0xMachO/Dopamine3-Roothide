@@ -41,8 +41,9 @@ static void finish_process_trace(trace_data_t* trace_data, bool success)
             task_set_exception_ports(trace_data->task, trace_data->saved_masks[i], trace_data->saved_ports[i], trace_data->saved_behaviors[i], trace_data->saved_flavors[i]);
         }
         ptrace(PT_DETACH, pid, NULL, SIGSTOP);
-        kill(pid, SIGQUIT); //core dump
-        kill(pid, SIGKILL);
+        // 3.x-native: exec tracing is unreachable (jbdExecTrace* are no-ops).
+        // Never SIGKILL spawned processes from a launchd-loaded library.
+        JBLogError("finish_process_trace: trace failed for pid=%d", pid);
     }
 
     for (uint32_t i = 0; i < trace_data->saved_exception_types_count; ++i) {

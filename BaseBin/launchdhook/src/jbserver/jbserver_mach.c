@@ -1,3 +1,4 @@
+#include <libjailbreak/roothider.h>
 #include <libjailbreak/jbserver.h>
 #include <mach/mach.h>
 #include <bsm/audit.h>
@@ -8,8 +9,6 @@ extern int fileport_makefd (mach_port_t port);
 int systemwide_process_checkin(audit_token_t *processToken, char **rootPathOut, char **bootUUIDOut, char **sandboxExtensionsOut, bool *fullyDebuggedOut, bool *forceCSAdhocOut);
 int systemwide_fork_fix(audit_token_t *parentToken, uint64_t childPid);
 int systemwide_trust_file(audit_token_t *processToken, int rfd, struct siginfo *siginfo, size_t siginfoSize, bool attach);
-
-bool systemwide_domain_allowed(audit_token_t clientToken);
 
 int jbserver_send_mach_reply(mach_msg_header_t *hdr, void *replyData)
 {
@@ -44,11 +43,13 @@ int jbserver_send_mach_reply(mach_msg_header_t *hdr, void *replyData)
 
 int jbserver_received_mach_message(audit_token_t *auditToken, struct jbserver_mach_msg *jbsMachMsg)
 {
+	JBLogDebug("jbserver received mach message(%d) from (%d) %s", jbsMachMsg->action, audit_token_to_pid(*auditToken), proc_get_path(audit_token_to_pid(*auditToken),NULL));
+
 	int r = -1;
 
 	// Anything implemented by the mach server is provided systemwide
 	// So we also need to honor the allowed handler of the systemwide domain
-	if (!systemwide_domain_allowed(*auditToken)) return -1;
+	if (!roothide_domain_allowed(*auditToken)) return -1;
 
 	uint64_t msgSize = jbsMachMsg->hdr.msgh_size;
 	void *replyData = NULL;
@@ -180,7 +181,7 @@ int jbserver_received_mach_message(audit_token_t *auditToken, struct jbserver_ma
 
 	// Anything implemented by the mach server is provided systemwide
 	// So we also need to honor the allowed handler of the systemwide domain
-	if (!systemwide_domain_allowed(*auditToken)) return -1;
+	if (!roothide_domain_allowed(*auditToken)) return -1;
 
 	uint64_t msgSize = jbsComplexMachMsg->hdr.msgh_size;
 	void *replyData = NULL;

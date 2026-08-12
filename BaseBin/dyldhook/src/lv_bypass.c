@@ -284,3 +284,48 @@ int HOOK(__fcntl)(int fd, int cmd, void *arg1, void *arg2, void *arg3, void *arg
 
 	return (int)msyscall_errno(0x5C, fd, cmd, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
 }
+
+#if IOS >= 18
+
+// Roothide fakelib redirect (iOS 18+)
+// When hiding the jailbreak, the /usr/lib mount disappears and processes crash
+// Redirect dlopen calls for files in /usr/lib to <jbroot>/basebin/.fakelib
+//
+// On iOS 15/16-17 this hook lives in fakelib_redirect.c (upstream 3.x, guarded with IOS < 18);
+// the two are mutually exclusive so the MACHOMERGER_HOOK__ZN5dyld44APIs11dlopen_fromEPKciPv
+// symbol is only ever defined once per variant.
+
+#define ROOTHIDE_FAKELIB_PREFIX "/basebin/.fakelib"
+
+extern void *ORIG(_ZN5dyld44APIs11dlopen_fromEPKciPv)(uintptr_t self, const char* path, int mode, void* addressInCaller);
+void *HOOK(_ZN5dyld44APIs11dlopen_fromEPKciPv)(uintptr_t self, const char* path, int mode, void* addressInCaller)
+{
+	if (jbinfo_is_checked_in()) {
+		if (!access(path, F_OK)) {
+			const char *orgPrefix = "/usr/lib/";
+			size_t orgPrefixLen = strlen(orgPrefix);
+			if (!strncmp(path, orgPrefix, orgPrefixLen)) {
+				char *jbroot = jbinfo_get_jbroot();
+				if (jbroot) {
+					const char *suffix = &path[orgPrefixLen - 1];
+					const char *middle = ROOTHIDE_FAKELIB_PREFIX;
+
+					size_t redirPathSize = strlen(suffix) + strlen(middle) + strlen(jbroot) + 1;
+					char redirPath[redirPathSize];
+					strlcpy(redirPath, jbroot, redirPathSize);
+					strlcat(redirPath, middle, redirPathSize);
+					strlcat(redirPath, suffix, redirPathSize);
+
+					void *handle = ORIG(_ZN5dyld44APIs11dlopen_fromEPKciPv)(self, redirPath, mode, addressInCaller);
+					if (handle) return handle;
+
+					// If anything failed, fall through
+				}
+			}
+		}
+	}
+
+	return ORIG(_ZN5dyld44APIs11dlopen_fromEPKciPv)(self, path, mode, addressInCaller);
+}
+
+#endif

@@ -1,5 +1,11 @@
 #if IOS==15 && __arm64e__
 
+//
+// spinlock_fix.c - adapted from roothide Dopamine 2.x (2.4.9.x)
+// Only built for the iOS 15 arm64e variant (see dyldhook/Makefile, FILES_IOS15_ARM64E)
+// Fixes the spinlock panic on iOS 15 arm64e by remapping the shared cache text pages as private
+//
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -56,8 +62,6 @@ void __dsc_enumerate_mappings(uintptr_t slide, bool (*enumeratorFunc)(int fd, st
 		char subcachePath[PATH_MAX];
 		strlcpy(subcachePath, dscPath, sizeof(subcachePath));
 
-		// Only supports 1-9
-		// Since iOS 15 usually only has one subcache, this shall be fine
 		char suffix[3];
 		suffix[0] = '.';
 		suffix[1] = '1' + i;
@@ -102,9 +106,38 @@ void dyld_make_dsc_text_private(uintptr_t slide)
 }
 
 extern bool ORIG(_ZN5dyld313loadDyldCacheERKNS_18SharedCacheOptionsEPNS_19SharedCacheLoadInfoE)(uintptr_t options, uintptr_t results);
+
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+__attribute__((optimize("O0"), noinline))
+bool ORIG__ZN5dyld313loadDyldCacheERKNS_18SharedCacheOptionsEPNS_19SharedCacheLoadInfoE(uintptr_t options, uintptr_t results)
+{
+	__asm("\
+	nop \n\
+	nop \n\
+	nop \n\
+	nop \n\
+	nop \n\
+	nop \n\
+	nop \n\
+	nop \n\
+	nop \n\
+	nop \n\
+	nop \n\
+	");
+
+	return ORIG(_ZN5dyld313loadDyldCacheERKNS_18SharedCacheOptionsEPNS_19SharedCacheLoadInfoE)(options, results);
+}
+#pragma GCC pop_options
+
 bool HOOK(_ZN5dyld313loadDyldCacheERKNS_18SharedCacheOptionsEPNS_19SharedCacheLoadInfoE)(uintptr_t options, uintptr_t results)
 {
-	bool r = ORIG(_ZN5dyld313loadDyldCacheERKNS_18SharedCacheOptionsEPNS_19SharedCacheLoadInfoE)(options, results);
+	bool r = ORIG__ZN5dyld313loadDyldCacheERKNS_18SharedCacheOptionsEPNS_19SharedCacheLoadInfoE(options, results);
+
+	extern bool SPINLOCK_FIX_DISABLED;
+	if(SPINLOCK_FIX_DISABLED) {
+		return r;
+	}
 
 	bool forcePrivate = *(bool *)(options + 8);
 	if (!forcePrivate) {

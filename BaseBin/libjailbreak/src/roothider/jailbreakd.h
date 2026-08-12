@@ -26,6 +26,13 @@ mach_port_t jailbreakdServerPort();
 int jbdTestCall(int value);
 int jbdSystemwideLog(const char* fmt, ...);
 
+/* 3.x-native contract (see jailbreakd.c): there is no jailbreakd on 3.x, so these
+ * are no-ops. jbdSpawnPatchChild/jbdSpinlockFixOnly still perform the caller's
+ * resume: they SIGCONT the child when `resume` is true (the child was spawned
+ * START_SUSPENDED by the caller and would otherwise hang forever). Only call them
+ * for a child you actually suspended. jbdExecTraceStart/Cancel report
+ * *traced/*detached = true immediately, so callers that busy-wait on those flags
+ * exit right away. */
 int jbdSpawnPatchChild(int pid, bool resume);
 int jbdSpawnExecStart(const char* execfile, bool resume);
 int jbdSpawnExecCancel(const char* execfile);
