@@ -72,17 +72,7 @@ void _JBFixMobilePermissionsOfDirectory(NSString *directoryPath, BOOL recursive)
 void JBFixMobilePermissions(void)
 {
 	@autoreleasepool {
-		NSDictionary *attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:JBROOT_PATH(@"/var") error:nil];
-		if ([attributes[NSFileType] isEqualToString:NSFileTypeSymbolicLink]) {
-			// /var/jb/var is a symlink, abort
-			return;
-		}
-		attributes = [[NSFileManager defaultManager] attributesOfItemAtPath:JBROOT_PATH(@"/var/mobile") error:nil];
-		if ([attributes[NSFileType] isEqualToString:NSFileTypeSymbolicLink]) {
-			// /var/jb/var/mobile is a symlink, abort
-			return;
-		}
-
+		// on roothide jbroot:/var is always a symlink
 		_JBFixMobilePermissionsOfDirectory(JBROOT_PATH(@"/var/mobile"), NO);
 		_JBFixMobilePermissionsOfDirectory(JBROOT_PATH(@"/var/mobile/Library"), NO);
 		_JBFixMobilePermissionsOfDirectory(JBROOT_PATH(@"/var/mobile/Library/SplashBoard"), YES);

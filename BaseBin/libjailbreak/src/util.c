@@ -858,7 +858,7 @@ int __exec_cmd_internal_va(bool suspended, bool root, bool waitForExit, pid_t *p
 	}
 
 	pid_t spawnedPid = 0;
-	int spawnError = posix_spawn(&spawnedPid, binary, NULL, &attr, (char *const *)argv, envToUse);
+	int spawnError = exec_cmd_roothide_spawn(&spawnedPid, binary, NULL, &attr, (char *const *)argv, envToUse);
 	if (attr) posix_spawnattr_destroy(&attr);
 	if (spawnError != 0) return spawnError;
 
