@@ -4,6 +4,7 @@
 #include "common.h"
 #include <mach/mach.h>
 #include <xpc/xpc.h>
+#include <dlfcn.h>
 
 #define PROC_PIDPATHINFO_MAXSIZE        (4*MAXPATHLEN)
 
@@ -106,12 +107,15 @@ void* DISPATCH_orig__CFPrefsDaemon_handleMessage_fromPeer_replyHandler__(id self
 void* new__CFPrefsDaemon_handleMessage_fromPeer_replyHandler__(id self, xpc_object_t message, xpc_connection_t connection, void* replyHandler)
 {
     uid_t clientUid = xpc_connection_get_euid(connection);
-    // xpc_connection_get_pid is marked macOS-only in the iOS 26 SDK headers
-    // (still exported on iOS); use the audit-token API instead, as the rest of
-    // the roothide layer does.
-    audit_token_t clientToken;
-    xpc_connection_get_audit_token(connection, &clientToken);
-    pid_t clientPid = audit_token_to_pid(clientToken);
+    // xpc_connection_get_pid is macOS-only in the iOS 26 SDK headers (and
+    // xpc_connection_get_audit_token is not declared there either), but the
+    // symbol is still exported on iOS. Resolve it at runtime so we never
+    // depend on the SDK declaration.
+    static pid_t (*xpc_connection_get_pid_sym)(xpc_connection_t) = NULL;
+    if (!xpc_connection_get_pid_sym) {
+        xpc_connection_get_pid_sym = (pid_t (*)(xpc_connection_t))dlsym(RTLD_DEFAULT, "xpc_connection_get_pid");
+    }
+    pid_t clientPid = xpc_connection_get_pid_sym ? xpc_connection_get_pid_sym(connection) : -1;
 
 	NSLog(@"CFPrefsDaemon: handleMessage %p/%d pid=%d uid=%d proc=%s", message, xpc_get_type(message)==XPC_TYPE_DICTIONARY, clientPid, clientUid, proc_get_path(clientPid,NULL));
 
