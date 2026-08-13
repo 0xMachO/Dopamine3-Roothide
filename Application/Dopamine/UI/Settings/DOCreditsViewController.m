@@ -35,7 +35,7 @@
 
 - (void)openSourceCode
 {
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/Phantom-fahad/Dopamine3-Roothide"] options:@{} completionHandler:nil];
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/0xMach/Dopamine3-Roothide"] options:@{} completionHandler:nil];
 }
 
 - (void)openDiscord
