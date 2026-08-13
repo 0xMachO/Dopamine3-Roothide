@@ -46,7 +46,7 @@ static int is_jbrand_value(uint64_t value)
    return check == (uint8_t)value;
 }
 
-int is_jbroot_name(char* name)
+int is_jbroot_name(const char* name)
 {
     if(strlen(name) != (sizeof(JB_ROOT_PREFIX)-1+JB_RAND_LENGTH))
         return 0;
@@ -96,7 +96,7 @@ NSString* find_jbroot(BOOL force)
         NSString * jbroot = nil;
         NSArray *subItems = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/containers/Bundle/Application/" error:nil];
         for (NSString *subItem in subItems) {
-            if (is_jbroot_name((char*)subItem.UTF8String))
+            if (is_jbroot_name(subItem.UTF8String))
             {
                 NSString* path = [@"/var/containers/Bundle/Application/" stringByAppendingPathComponent:subItem];
                 jbroot = path;

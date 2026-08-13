@@ -41,8 +41,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSString *)accessibleKernelPath;
 - (NSString *)accessibleSPTMPath;
 - (NSString *)accessibleTXMPath;
-- (void)locateJailbreakRoot;
-- (NSError *)ensureJailbreakRootExists;
 
 - (void)setJailbroken:(BOOL)jailbroken withVersion:(NSString *)version;
 
@@ -77,6 +75,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSError *)deleteBootstrap;
 - (NSError *)reinstallPackageManagers;
 - (NSError *)updateBootLogo;
+@end
+
+// roothide: root resolution lives in the DOEnvironmentManager(roothide) category (overrides the disabled preboot path)
+@interface DOEnvironmentManager (roothide)
+- (void)locateJailbreakRoot;
+- (NSError *)ensureJailbreakRootExists;
 @end
 
 NS_ASSUME_NONNULL_END

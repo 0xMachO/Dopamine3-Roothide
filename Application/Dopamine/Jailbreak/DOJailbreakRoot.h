@@ -21,7 +21,7 @@ uint64_t jbrand_current(void);
 uint64_t resolve_jbrand_value(const char *name);
 
 // Returns nonzero if `name` is a valid hidden jbroot folder name (".jbroot-<16hex>").
-int is_jbroot_name(char *name);
+int is_jbroot_name(const char *name);
 
 // Locates the hidden jbroot (searching the app-container + app-group dirs).
 // Returns nil if none is found. Caches the result unless `force` is YES.

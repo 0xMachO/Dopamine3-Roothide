@@ -767,7 +767,7 @@ int ensure_dyld_trustcache(const char* path)
     }
 
     trustcache_file_v1 *dyldTCFile = NULL;
-    if (trustcache_file_build_from_cdhashes(cdhash, 1, &dyldTCFile) != 0) {
+    if (trustcache_file_build_from_cdhashes(&cdhash, 1, &dyldTCFile) != 0) {
         JBLogError("Failed to build dyld trustcache");
         return -1;
     }
