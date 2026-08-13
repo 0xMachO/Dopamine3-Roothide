@@ -86,16 +86,12 @@ jobs:
             cd Application/Dopamine/Resources
             ./download_bootstraps.sh
 
-      - name: Build RootHide Manager
+      - name: Download RootHide Manager
         run: |
           set -x
-          export THEOS="$(pwd)/theos"
-          cd RootHideManagerApp
-          gmake -j$(sysctl -n hw.logicalcpu) FINALPACKAGE=1
-          DEB=$(ls packages/com.roothide.manager_*.deb 2>/dev/null | head -1)
-          if [ -z "$DEB" ]; then echo "ERROR: RootHide Manager deb not produced"; exit 1; fi
-          cp "$DEB" ../Application/Dopamine/Resources/roothideapp.deb
-          ls -la ../Application/Dopamine/Resources/roothideapp.deb
+          curl -fsSL https://roothide.github.io/debfiles/com.roothide.manager_1.3.9_iphoneos-arm64e.deb -o Application/Dopamine/Resources/roothideapp.deb
+          echo "b8f075e1844709845962900b22fe71136a66369a2c35bb1201087f2fd9476b7d  Application/Dopamine/Resources/roothideapp.deb" | shasum -a 256 -c -
+          ls -la Application/Dopamine/Resources/roothideapp.deb
 
       - name: Build
         run: |

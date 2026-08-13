@@ -97,13 +97,11 @@
 
 #### 9c. الموارد: `roothideapp.deb` (تطبيق RootHide Manager) 🟡
 - 2.x يثبّت تطبيق RootHide (واجهة blacklist التطبيقات + إخفاء الجيلبريك) عبر deb.
-- عندنا: **مفقود** — غير موجود في `Resources/`.
-- **القرار (محسوم):** البناء من المصدر `roothide/RootHideManagerApp` (Objective-C، MIT، نشط حتى 2026).
+- **القرار (محسوم — مُحدَّث):** تنزيل النسخة المبنية جاهزة من مستودع roothide (`com.roothide.manager_1.3.9_iphoneos-arm64e.deb`) بدل البناء من المصدر (البناء عبر THEOS بطيء جدًا وفشل في التعبئة).
+- **التحقق:** SHA256 مثبّت في CI، layout `./Applications/RootHide.app/`، arm64+arm64e، مطابق لنسخة 2.x حرفيًا.
 - **خطوات ملموسة:**
-  1. إضافة submodule `roothide/RootHideManagerApp` (أو vendoring).
-  2. بناؤه عبر THEOS (`Makefile` موجود → ينتج deb `com.roothide.manager`، arm64+arm64e، iOS 15+).
-  3. ضمّ الـ deb الناتج إلى `Application/Dopamine/Resources/roothideapp.deb`.
-  4. إضافة خطوة البناء في CI (roothide.yml).
+  1. ✅ خطوة `Download RootHide Manager` في roothide.yml تنزّل الـ deb إلى `Resources/roothideapp.deb` (مع فحص SHA256).
+  2. ✅ أُزيل submodule `RootHideManagerApp` (لم يعد مبنيًا).
 - **ملاحظة توافق:** التطبيق يكتب `RootHideConfig.plist` ويخاطب domain الـ roothide في jbserver — بما أننا حافظنا على نفس البروتوكول، سيعمل كما هو.
 
 #### 9d. الـ credits + الأيقونة + الترجمة

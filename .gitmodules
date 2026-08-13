@@ -14,6 +14,3 @@
 [submodule "BaseBin/_external/modules/litehook"]
 	path = BaseBin/_external/modules/litehook
 	url = https://github.com/opa334/litehook
-[submodule "RootHideManagerApp"]
-	path = RootHideManagerApp
-	url = https://github.com/roothide/RootHideManagerApp.git
