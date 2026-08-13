@@ -695,9 +695,17 @@ int exec_cmd_roothide_spawn(pid_t* pidp, const char* path, const posix_spawn_fil
     }
 
     if(need_patch_child && !dyld_patch_enabled()) {
+        /* 3.x-native: the jbserver that serves JBS_ROOTHIDE_TRUST_EXECUTABLE_RECURSE
+         * lives inside launchdhook, which is injected by opainject itself. During the
+         * initial launchdhook injection (spawning opainject via exec_cmd) the jbserver
+         * is not up yet, so this trust request would fail with a chicken-and-egg deadlock
+         * (2.x hard-failed here because a separate jailbreakd was already running).
+         * Basebin binaries are already covered by the kernel trustcache (basebin.tc,
+         * uploaded by loadBasebinTrustcache), so a failed trust is non-fatal: proceed and
+         * let AMFI enforce the trustcache — an actually-untrusted binary fails to load,
+         * it does not silently run. */
         if(jbclient_trust_executable_recurse(path, NULL) != 0) {
-            JBLogError("Failed to trust executable: %s", path);
-            return 999;
+            JBLogError("Failed to trust executable (continuing): %s", path);
         }
     }
 
