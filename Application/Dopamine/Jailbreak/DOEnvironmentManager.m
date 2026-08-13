@@ -6,6 +6,7 @@
 //
 
 #import "DOEnvironmentManager.h"
+#import "DOJailbreakRoot.h"
 #import "UIImage+JPEG2000.h"
 
 #import <sys/sysctl.h>
@@ -851,6 +852,35 @@ CFPropertyListRef MGCopyAnswer(CFStringRef);
         }];
         return nil;
     }
+}
+
+@end
+
+////////////////////////////////////////////////////////////
+// roothide: resolve the jailbreak root from the hidden location
+// Ported from Dopamine 2.x roothide (DOEnvironmentManager(roothide) category).
+////////////////////////////////////////////////////////////
+
+@implementation DOEnvironmentManager(roothide)
+
+- (void)locateJailbreakRoot
+{
+    if(gSystemInfo.jailbreakInfo.rootPath) {
+        free(gSystemInfo.jailbreakInfo.rootPath);
+        gSystemInfo.jailbreakInfo.rootPath = NULL; // 3.x-native: avoid dangling pointer
+    }
+    
+    NSString* jbroot_path = find_jbroot(YES);
+    if(jbroot_path) {
+        gSystemInfo.jailbreakInfo.rootPath = strdup(jbroot_path.fileSystemRepresentation);
+        gSystemInfo.jailbreakInfo.jbrand = jbrand_current();
+    }
+}
+
+- (NSError *)ensureJailbreakRootExists
+{
+    // The hidden .jbroot-<jbrand> directory is created by DOBootstrapper(roothide).
+    return nil;
 }
 
 @end
