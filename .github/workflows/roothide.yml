@@ -86,6 +86,17 @@ jobs:
             cd Application/Dopamine/Resources
             ./download_bootstraps.sh
 
+      - name: Build RootHide Manager
+        run: |
+          set -x
+          export THEOS="$(pwd)/theos"
+          cd RootHideManagerApp
+          gmake -j$(sysctl -n hw.logicalcpu) FINALPACKAGE=1
+          DEB=$(ls packages/com.roothide.manager_*.deb 2>/dev/null | head -1)
+          if [ -z "$DEB" ]; then echo "ERROR: RootHide Manager deb not produced"; exit 1; fi
+          cp "$DEB" ../Application/Dopamine/Resources/roothideapp.deb
+          ls -la ../Application/Dopamine/Resources/roothideapp.deb
+
       - name: Build
         run: |
           set -x
