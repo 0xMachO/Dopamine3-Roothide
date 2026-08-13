@@ -453,7 +453,10 @@ int crashreporter_pause(void)
 	int key = 0;
 	@synchronized(@"CrashReporterStateKey")
 	{
-		if (gCrashReporterState == kCrashReporterStateActive) {
+		if (@available(iOS 17.0, *)) {
+			/* no-op on iOS 17+ (see crashreporter_start). */
+		}
+		else if (gCrashReporterState == kCrashReporterStateActive) {
 			task_set_exception_ports(mach_task_self_, EXC_MASK_CRASH_RELATED, MACH_PORT_NULL, 0, 0);
 			NSSetUncaughtExceptionHandler(defaultNSExceptionHandler);
 			defaultNSExceptionHandler = nil;
@@ -471,7 +474,10 @@ void crashreporter_resume(int key)
 	{
 		if(key == gCrashReporterStateKey)
 		{
-			if (gCrashReporterState == kCrashReporterStatePaused) {
+			if (@available(iOS 17.0, *)) {
+				/* no-op on iOS 17+ (see crashreporter_start). */
+			}
+			else if (gCrashReporterState == kCrashReporterStatePaused) {
 				task_set_exception_ports(mach_task_self_, EXC_MASK_CRASH_RELATED, gExceptionPort, EXCEPTION_DEFAULT|MACH_EXCEPTION_CODES, ARM_THREAD_STATE64);
 				defaultNSExceptionHandler = NSGetUncaughtExceptionHandler();
 				NSSetUncaughtExceptionHandler(crashreporter_catch_objc);
@@ -582,6 +588,15 @@ int sigcatch[] = {
 
 void crashreporter_start()
 {
+	if (@available(iOS 17.0, *)) {
+		/* iOS 17+ hardens launchd's task exception ports: task_set_exception_ports
+		 * with a non-identity-protected behavior (EXCEPTION_DEFAULT) raises a fatal
+		 * kGUARD_EXC_EXCEPTION_BEHAVIOR_ENFORCE mach-port guard, panicking the kernel
+		 * ("initproc exited"). Mirror vanilla 3.x: the crash reporter (mach exception
+		 * port + signal handlers) is fully disabled on iOS 17+. */
+		return;
+	}
+
 	char pathbuf[PATH_MAX] = {0};
 	uint32_t pathlen = sizeof(pathbuf);
 	_NSGetExecutablePath(pathbuf, &pathlen);
