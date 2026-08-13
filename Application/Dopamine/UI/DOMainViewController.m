@@ -16,6 +16,7 @@
 #import <pthread.h>
 #import <sys/sysctl.h>
 #import <libjailbreak/libjailbreak.h>
+#import <libjailbreak/roothider.h>
 
 @interface DOMainViewController ()
 
@@ -134,6 +135,15 @@
         jailbreakButtonImage = [UIImage systemImageNamed:@"lock.slash" withConfiguration:[DOGlobalAppearance smallIconImageConfiguration]];
     
     self.jailbreakBtn = [[DOJailbreakButton alloc] initWithAction: [UIAction actionWithTitle:jailbreakButtonTitle image:jailbreakButtonImage identifier:@"jailbreak" handler:^(__kindof UIAction * _Nonnull action) {
+        // roothide: refuse to start if another jailbreak is active
+        if (otherJailbreakActived(false)) {
+            UIAlertController *alertController = [UIAlertController alertControllerWithTitle:DOLocalizedString(@"Error") message:DOLocalizedString(@"Your device currently has another jailbreak activated, please reboot device.") preferredStyle:UIAlertControllerStyleAlert];
+            UIAlertAction *closeAction = [UIAlertAction actionWithTitle:DOLocalizedString(@"Button_Close") style:UIAlertActionStyleDefault handler:nil];
+            [alertController addAction:closeAction];
+            [self presentViewController:alertController animated:YES completion:nil];
+            return;
+        }
+
         [actionView hide];
         [self.jailbreakBtn expandButton: self.jailbreakButtonConstraints];
 
