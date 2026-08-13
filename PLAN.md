@@ -25,6 +25,10 @@
 
 > **حالة التنفيذ (2026-08-13):** المراحل 1-5 منجزة ✅ في commit `3268ca22`.
 > المرحلة 6 تحقق فقط، والمرحلة 7 (البناء + الاختبار على الجهاز) هي المتبقية.
+>
+> **GAP-5 (اكتُشف في المراجعة العميقة + أُصلح `c516b93a`):** الـ `sileo.deb`/`zebra.deb` المضمنة كانت
+> النسخ الأصلية (arm64، `./var/jb/Applications`، hardcoded `/var/jb`) وليست forks الـ roothide.
+> استُبدلت بـ Sileo `2.5.1-13` و Zebra `1.1.36-2-1+debug` (arm64e، `@loader_path/.jbroot` + `libroothide`).
 
 ### المرحلة 1 — طبقة التخزين المخفي (الأساس) ✅ منجزة
 - نقل `find_jbroot` / `is_jbroot_name` / `jbrand_new` / `jbrand_current` / `resolve_jbrand_value`.
