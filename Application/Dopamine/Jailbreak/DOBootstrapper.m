@@ -16,6 +16,120 @@
 #import <dlfcn.h>
 #import <sys/stat.h>
 #import "NSString+Version.h"
+#import "DOJailbreakRoot.h"
+
+#include <stdlib.h>
+#include <string.h>
+
+/************************* roothide specific *******************/
+// Hidden-jbroot helpers ported from Dopamine 2.x roothide.
+// The jailbreak root lives at a hidden location (.jbroot-<16hex>) inside the
+// app-container and app-group directories instead of the standard rootless
+// preboot path, so standard jailbreak-detection heuristics can't find it.
+
+#define JB_ROOT_PREFIX ".jbroot-"
+#define JB_RAND_LENGTH  (sizeof(uint64_t)*sizeof(char)*2)
+
+uint64_t jbrand_new(void)
+{
+    uint64_t value = ((uint64_t)arc4random()) | ((uint64_t)arc4random())<<32;
+    uint8_t check = value>>8 ^ value >> 16 ^ value>>24 ^ value>>32 ^ value>>40 ^ value>>48 ^ value>>56;
+    return (value & ~0xFF) | check;
+}
+
+static int is_jbrand_value(uint64_t value)
+{
+   uint8_t check = value>>8 ^ value >> 16 ^ value>>24 ^ value>>32 ^ value>>40 ^ value>>48 ^ value>>56;
+   return check == (uint8_t)value;
+}
+
+int is_jbroot_name(char* name)
+{
+    if(strlen(name) != (sizeof(JB_ROOT_PREFIX)-1+JB_RAND_LENGTH))
+        return 0;
+
+    if(strncmp(name, JB_ROOT_PREFIX, sizeof(JB_ROOT_PREFIX)-1) != 0)
+        return 0;
+
+    char* endp=NULL;
+    uint64_t value = strtoull(name+sizeof(JB_ROOT_PREFIX)-1, &endp, 16);
+    if(!endp || *endp!='\0')
+        return 0;
+
+    if(!is_jbrand_value(value))
+        return 0;
+
+    return 1;
+}
+
+uint64_t resolve_jbrand_value(const char* name)
+{
+    if(strlen(name) != (sizeof(JB_ROOT_PREFIX)-1+JB_RAND_LENGTH))
+        return 0;
+
+    if(strncmp(name, JB_ROOT_PREFIX, sizeof(JB_ROOT_PREFIX)-1) != 0)
+        return 0;
+
+    char* endp=NULL;
+    uint64_t value = strtoull(name+sizeof(JB_ROOT_PREFIX)-1, &endp, 16);
+    if(!endp || *endp!='\0')
+        return 0;
+
+    if(!is_jbrand_value(value))
+        return 0;
+
+    return value;
+}
+
+NSString* find_jbroot(BOOL force)
+{
+    static NSString* cached_jbroot = nil;
+    if(!force && cached_jbroot) {
+        return cached_jbroot;
+    }
+    @synchronized(@"find_jbroot_lock")
+    {
+        // jbroot path may change when re-randomized
+        NSString * jbroot = nil;
+        NSArray *subItems = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:@"/var/containers/Bundle/Application/" error:nil];
+        for (NSString *subItem in subItems) {
+            if (is_jbroot_name((char*)subItem.UTF8String))
+            {
+                NSString* path = [@"/var/containers/Bundle/Application/" stringByAppendingPathComponent:subItem];
+                jbroot = path;
+                break;
+            }
+        }
+        cached_jbroot = jbroot;
+    }
+    return cached_jbroot;
+}
+
+uint64_t jbrand_current(void)
+{
+    NSString* jbroot = find_jbroot(NO);
+    if (!jbroot) return 0;
+    return resolve_jbrand_value(jbroot.lastPathComponent.UTF8String);
+}
+
+NSString* jbrootPrefix(NSString *path)
+{
+    if(!path || path.UTF8String[0]!='/') {
+        return path;
+    }
+    NSString* jbroot = find_jbroot(NO);
+    if (!jbroot) return nil; // 3.x-native: fail safe instead of asserting (app context)
+    return [jbroot stringByAppendingPathComponent:path];
+}
+
+NSString* rootfsPrefix(NSString* path)
+{
+    if(!path || path.UTF8String[0]!='/') {
+        return path;
+    }
+    return [@"/rootfs/" stringByAppendingPathComponent:path];
+}
+/***************************************************************/
 
 #define LIBKRW_DOPAMINE_BUNDLED_VERSION @"2.0.3"
 #define LIBROOT_DOPAMINE_BUNDLED_VERSION @"1.0.1"
