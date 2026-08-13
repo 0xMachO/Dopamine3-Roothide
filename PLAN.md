@@ -51,6 +51,59 @@
 ### المرحلة 7 — البناء والاختبار
 - بناء كامل + فحص الـ tipa + اختبار على الجهاز.
 
+### المرحلة 8 — توحيد المعرّف + تدفق الجيلبريك roothide (جديد — من ROOTHIDE_DIFF_ANALYSIS.md)
+
+> اكتُشفت عبر الـ diff المفصّل مع 2.4.9. هذه الفجوات **مستقلة** عن التخزين المخفي
+> (المراحل 1-5) ويجب إنجازها أيضًا لنصل إلى "roothide حرفيًا".
+
+#### 8a. Bundle ID — ✅ محسوم: يُبقى `com.opa334.Dopamine` (بدون تغيير)
+- **قرار المستخدم:** البقاء على `com.opa334.Dopamine` (لا تحويل إلى `-roothide`).
+- `jbctl/src/main.m:170` يستخدم `com.opa334.Dopamine` أصلًا → متوافق.
+- `SENSITIVE_APP_IDENTIFIERS` (common.h) تحوي المعرّفين معًا → متوافقة.
+- **تعديل واحد مطلوب (أُنجز):** `blacklist.m` `builtinApps` أُضيف لها `com.opa334.Dopamine`
+  بجوار `-roothide` (قائمة الإعفاء من الحجب تطابق المعرّف الفعلي).
+
+#### 8b. تدفق الجيلبريك في DOJailbreaker.m (خطوات roothide المفقودة)
+- `randomizeAndLoadBasebinTrustcache(JBROOT_PATH("/basebin/"))` — تحميل trustcache عشوائي (إخفاء).
+- `ensure_dyld_trustcache(JBROOT_PATH("/basebin/.fakelib/dyld"))` — رفع cdhash الـ fakelib dyld للنواة.
+- `setenv("DISABLE_TWEAKS", "1", 1)` — منع تحميل tweaks أثناء الجيلبريك.
+- `setenv("PATH", "/sbin:...:/rootfs/sbin:...")` — يعتمد على المرحلة 5.
+- قراءة `dyldPatchEnabled` من التفضيلات (أو إبقاؤها معطّلة = المسار البيئي).
+- كشف "جيلبريك آخر نشط" → رفض بأمان.
+
+#### 8c. منطق hideJailbreak (زر الإخفاء)
+- `DOEnvironmentManager.m` — إخفاء `/var/jb` + العمليات + unmount fakelib مؤقتًا.
+- يعتمد جزئيًا على المراحل 1-5 (`/rootfs/` + `.jbroot`)، لكن الهيكل العام يمكن نقله الآن.
+
+### المرحلة 9 — واجهات roothide + الموارد (جديد — من ROOTHIDE_DIFF_ANALYSIS.md)
+
+> واجهات التطبيق (UI) وموارده — ما طلبه المستخدم ولم يكن مدرجًا سابقًا.
+
+#### 9a. روابط التحديث → مستودعنا 🔴
+- `DOUIManager.m:74` — `api.github.com/repos/roothide/Dopamine2-roothide/releases` → `Phantom-fahad/Dopamine3-Roothide`.
+- `DOUpdateViewController.m:122` — `github.com/roothide/Dopamine2-roothide/releases` → مستودعنا.
+- ملاحظة: الحالي يشير لمستودع 2.x القديم (خاطئ).
+
+#### 9b. كشف "جيلبريك آخر نشط" (تنبيه)
+- `DOMainViewController.m` + `DOJailbreaker.m` — تنبيه "Your device currently has another jailbreak activated, please reboot device." غير موجود عندنا.
+- مرتبط بـ 8b (كشف جيلبريك آخر قبل البدء).
+
+#### 9c. الموارد: `roothideapp.deb` (تطبيق RootHide Manager) 🟡
+- 2.x يثبّت تطبيق RootHide (واجهة blacklist التطبيقات + إخفاء الجيلبريك) عبر deb.
+- عندنا: **مفقود** — غير موجود في `Resources/`.
+- **القرار (محسوم):** البناء من المصدر `roothide/RootHideManagerApp` (Objective-C، MIT، نشط حتى 2026).
+- **خطوات ملموسة:**
+  1. إضافة submodule `roothide/RootHideManagerApp` (أو vendoring).
+  2. بناؤه عبر THEOS (`Makefile` موجود → ينتج deb `com.roothide.manager`، arm64+arm64e، iOS 15+).
+  3. ضمّ الـ deb الناتج إلى `Application/Dopamine/Resources/roothideapp.deb`.
+  4. إضافة خطوة البناء في CI (roothide.yml).
+- **ملاحظة توافق:** التطبيق يكتب `RootHideConfig.plist` ويخاطب domain الـ roothide في jbserver — بما أننا حافظنا على نفس البروتوكول، سيعمل كما هو.
+
+#### 9d. الـ credits + الأيقونة + الترجمة
+- `Credits.plist` + `DOCreditsViewController.m` (رابط repo → مستودعنا).
+- أيقونة التطبيق (branding roothide) — قرار تجميلي.
+- `Localizable.strings` (نصوص roothide الجديدة).
+
 ---
 
 ## 3. تقدير الجهد
@@ -64,6 +117,13 @@
 | 5 (/var/jb + /rootfs) | متوسط | ⭐⭐⭐ |
 | 6 (كل الأجهزة) | تحقق فقط | ⭐ |
 | 7 (بناء+اختبار) | مستمر | ⭐⭐ |
+| 8a (bundle ID) | ✅ منجز | ⭐ |
+| 8b (تدفق DOJailbreaker) | متوسط | ⭐⭐⭐ |
+| 8c (hideJailbreak) | متوسط | ⭐⭐⭐ |
+| 9a (روابط التحديث) | صغير جدًا | ⭐ |
+| 9b (كشف جيلبريك آخر) | صغير | ⭐ |
+| 9c (roothideapp.deb) | قرار + متوسط | ⭐⭐ |
+| 9d (credits/أيقونة/ترجمة) | صغير-تجميلي | ⭐ |
 
 ---
 
