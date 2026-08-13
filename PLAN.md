@@ -23,24 +23,27 @@
 
 ## 2. خطة التنفيذ (7 مراحل)
 
-### المرحلة 1 — طبقة التخزين المخفي (الأساس)
+> **حالة التنفيذ (2026-08-13):** المراحل 1-5 منجزة ✅ في commit `3268ca22`.
+> المرحلة 6 تحقق فقط، والمرحلة 7 (البناء + الاختبار على الجهاز) هي المتبقية.
+
+### المرحلة 1 — طبقة التخزين المخفي (الأساس) ✅ منجزة
 - نقل `find_jbroot` / `is_jbroot_name` / `jbrand_new` / `jbrand_current` / `resolve_jbrand_value`.
 - نقل `jbrootPrefix` / `rootfsPrefix`.
 - تعديل `JBROOT_PATH`/`ROOTFS_PATH` في `jbroot.h` لتُرجع المسار المخفي.
 - تحديث `locateJailbreakRoot` و`ensureJailbreakRootExists`.
 
-### المرحلة 2 — الـ Bootstrap
+### المرحلة 2 — الـ Bootstrap ✅ منجزة
 - تكييف `DOBootstrapper` ليفك الـ bootstrap إلى المسار المخفي.
 - **القرار (محسوم):** نعتمد **الـ procursus القياسي** (`bootstrap_1800/1900.tar.zst`) — نفس ما فعله 2.x roothide (لم يستخدم procursus مخصصًا للـ bootstrap الأساسي؛ `roothide.github.io/procursus` كان لمصادر apt فقط). لا اعتماد على مستودع خارجي.
 
-### المرحلة 3 — تفعيل `@loader_path/.jbroot`
+### المرحلة 3 — تفعيل `@loader_path/.jbroot` ✅ منجزة (ensure_jbroot_symlink + fixBootstrapSymlink + expandAtLoaderPath موجودة)
 - إعادة التوجيه موجودة في `expandAtLoaderPath` لكنها غير مستخدمة (الثنائيات تشير للمسار المطلق).
 - جعل basebin + bootstrap يشيران إلى `.jbroot`.
 
-### المرحلة 4 — اكتشاف الـ jbroot في launchdhook
+### المرحلة 4 — اكتشاف الـ jbroot في launchdhook ✅ منجزة (تلقائي: launchdhook يشتق rootPath من مسار dylib نفسه)
 - launchdhook يشتق `rootPath` من مسار الـ dylib — سيستخدم `find_jbroot` (أو marker الـ jbrand).
 
-### المرحلة 5 — إزالة `/var/jb` + إضافة `/rootfs/`
+### المرحلة 5 — إزالة `/var/jb` + إضافة `/rootfs/` ✅ منجزة
 - حذف منطق symlink `/var/jb` نهائيًا.
 - إضافة bind-mount لـ `/rootfs/` (الوصول للـ rootfs الأصلي).
 
@@ -131,7 +134,7 @@
 
 1. **الـ Bootstrap:** ✅ **محسوم — القياسي + تكييف** (نفس نهج 2.x).
    - نقطة معماريّة: `jbroot.h` متطابق مع 2.x (`JBROOT_PATH` = `get_jbroot() + path`)، فالتوجيه مجرّد عبر `get_jbroot()` — التغيير الجوهري هو جعلها ترجع المسار المخفي.
-2. **الـ rootfs (`/rootfs/`):** هل هو مطلوب فعلًا أم يمكن الاستغناء عنه؟
+2. **الـ rootfs (`/rootfs/`):** ✅ **محسوم — نُبقيها كاملة كما في 2.x** (PATH + rootfsPrefix + مصادر apt الـ roothide + finalizeBootstrap). `/rootfs` تُوفَّر وقت التشغيل بواسطة libroothide (مستودع roothide.procursus) وطبقة BaseBin الـ roothide المنقولة.
 3. **ترتيب التنفيذ:** المرحلة 1+4 أساسًا صلبًا، ثم 2+3.
 
 ---
