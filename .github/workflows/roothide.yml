@@ -80,7 +80,7 @@ jobs:
         run: |
           brew install libarchive
 
-      - name: Download Bootstraps
+      - name: Verify Bootstraps (committed roothide layout)
         run: |
             set -x
             cd Application/Dopamine/Resources

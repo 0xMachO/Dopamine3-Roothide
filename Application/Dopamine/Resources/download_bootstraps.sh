@@ -1,9 +1,32 @@
+#!/bin/bash
+# The procursus bootstraps bundled with roothide-Dopamine use the *roothide* layout:
+#   ./var/                 <- rootfs directly (mobile, lib, cache, ...)
+#   ./private/var -> ../var
+#   ./var/tmp -> ../tmp
+#   ./tmp/                 <- real dir
+#   ./.jbroot -> .
+#   ./prep_bootstrap.sh, ./usr/libexec/updatelinks.sh, ./.procursus_strapped
+#
+# They are COMMITTED in this directory:
+#   bootstrap_1800.tar.zst   (iOS 15)
+#   bootstrap_1900.tar.zst   (iOS 16+, incl. iOS 18)
+#
+# DO NOT re-download them from apt.procurs.us — that gives the *vanilla* procursus
+# layout (rootfs at /var/jb, no /private/var, no /tmp), which makes InstallBootstrap
+# ABORT at the /private/var symlink creation step.
+#
+# To refresh them, copy the current files from the upstream roothide Dopamine repo:
+#   Application/Dopamine/Resources/bootstrap_1800.tar.zst
+#   Application/Dopamine/Resources/bootstrap_1900.tar.zst
+
 set -e
 
-curl -L https://apt.procurs.us/bootstraps/1800/bootstrap-iphoneos-arm64.tar.zst --output bootstrap_1800.tar.zst
-curl -L https://apt.procurs.us/bootstraps/1900/bootstrap-iphoneos-arm64.tar.zst --output bootstrap_1900.tar.zst
+for f in bootstrap_1800.tar.zst bootstrap_1900.tar.zst; do
+  if [ ! -s "$f" ]; then
+    echo "ERROR: $f is missing or empty. The roothide bootstrap must be committed." >&2
+    exit 1
+  fi
+done
 
-# Package managers are the roothide forks (arm64e, link @loader_path/.jbroot/usr/lib/libroothide.dylib).
-# Committed in Resources/ (sileo.deb / zebra.deb). To refresh from roothide.github.io/procursus:
-#   curl -L https://raw.githubusercontent.com/roothide/roothide.github.io/main/debfiles/org.coolstar.sileo_2.5.1-13_iphoneos-arm64e.deb --output sileo.deb
-#   curl -L https://raw.githubusercontent.com/roothide/roothide.github.io/main/debfiles/xyz.willy.zebra_1.1.36-2-1+debug_iphoneos-arm64e.deb --output zebra.deb
+echo "Using committed roothide bootstraps:"
+ls -la bootstrap_1800.tar.zst bootstrap_1900.tar.zst
