@@ -22,6 +22,7 @@
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
+#include <errno.h>
 #include <limits.h>
 
 /************************* roothide specific *******************/
@@ -204,6 +205,22 @@ NSString *const bootstrapErrorDomain = @"BootstrapErrorDomain";
     }
     
     return NO;
+}
+
+- (BOOL)removeItemAtPathRobustly:(NSString *)path
+{
+    // New procursus bootstraps (1800/1900) ship /private/var -> ../var and
+    // var/tmp -> ../tmp as symlinks. After the containing /var directory is moved
+    // away these become dangling, and removeItemAtPath: fails on dangling symlinks.
+    // unlink() operates on the link itself and tolerates ENOENT.
+    NSError *error = nil;
+    if ([[NSFileManager defaultManager] removeItemAtPath:path error:&error]) {
+        return YES;
+    }
+    if (unlink(path.fileSystemRepresentation) == 0) {
+        return YES;
+    }
+    return errno == ENOENT;
 }
 
 - (NSError *)createSymlinkAtPath:(NSString *)path toPath:(NSString *)destinationPath createIntermediateDirectories:(BOOL)createIntermediate
@@ -852,10 +869,10 @@ int getCFMajorVersion(void)
     ASSERT([fm moveItemAtPath:jbrootPrefix(@"/var") toPath:[jbroot_secondary stringByAppendingPathComponent:@"/var"] error:nil]);
     ASSERT([fm createSymbolicLinkAtPath:jbrootPrefix(@"/var") withDestinationPath:@"private/var" error:nil]);
     
-    ASSERT([fm removeItemAtPath:jbrootPrefix(@"/private/var") error:nil]);
+    ASSERT([self removeItemAtPathRobustly:jbrootPrefix(@"/private/var")]);
     ASSERT([fm createSymbolicLinkAtPath:jbrootPrefix(@"/private/var") withDestinationPath:[jbroot_secondary stringByAppendingPathComponent:@"/var"] error:nil]);
     
-    ASSERT([fm removeItemAtPath:[jbroot_secondary stringByAppendingPathComponent:@"/var/tmp"] error:nil]);
+    ASSERT([self removeItemAtPathRobustly:[jbroot_secondary stringByAppendingPathComponent:@"/var/tmp"]]);
     ASSERT([fm moveItemAtPath:jbrootPrefix(@"/tmp") toPath:[jbroot_secondary stringByAppendingPathComponent:@"/var/tmp"] error:nil]);
     ASSERT([fm createSymbolicLinkAtPath:jbrootPrefix(@"/tmp") withDestinationPath:@"var/tmp" error:nil]);
     
@@ -897,11 +914,11 @@ int getCFMajorVersion(void)
     NSString* jbroot_path = [NSString stringWithFormat:@"/var/containers/Bundle/Application/.jbroot-%016llX", new_jbrand];
     NSString* jbroot_secondary = [NSString stringWithFormat:@"/var/mobile/Containers/Shared/AppGroup/.jbroot-%016llX", new_jbrand];
     
-    ASSERT([fm removeItemAtPath:[jbroot_path stringByAppendingPathComponent:@"/private/var"] error:nil]);
+    ASSERT([self removeItemAtPathRobustly:[jbroot_path stringByAppendingPathComponent:@"/private/var"]]);
     ASSERT([fm createSymbolicLinkAtPath:[jbroot_path stringByAppendingPathComponent:@"/private/var"]
                     withDestinationPath:[jbroot_secondary stringByAppendingPathComponent:@"/var"] error:nil]);
     
-    ASSERT([fm removeItemAtPath:[jbroot_secondary stringByAppendingPathComponent:@".jbroot"] error:nil]);
+    ASSERT([self removeItemAtPathRobustly:[jbroot_secondary stringByAppendingPathComponent:@".jbroot"]]);
     ASSERT([fm createSymbolicLinkAtPath:[jbroot_secondary stringByAppendingPathComponent:@".jbroot"]
                     withDestinationPath:jbroot_path error:nil]);
     
@@ -1088,9 +1105,7 @@ int getCFMajorVersion(void)
     const char* jbpath = jbrootPrefix(path).fileSystemRepresentation;
     
     struct stat st={0};
-    int r = lstat(jbpath, &st);
-    if(r != 0) {
-        assert(errno != 0);
+    if(lstat(jbpath, &st) != 0) {
         return errno;
     }
     
@@ -1099,7 +1114,9 @@ int getCFMajorVersion(void)
     }
     
     char link[PATH_MAX+1] = {0};
-    assert(readlink(jbpath, link, sizeof(link)-1) > 0);
+    if(readlink(jbpath, link, sizeof(link)-1) <= 0) {
+        return errno != 0 ? errno : -1;
+    }
     if(link[0] != '/') {
         return 0;
     }
@@ -1110,14 +1127,24 @@ int getCFMajorVersion(void)
     NSString *pattern = @"^(?:/private)?/var/containers/Bundle/Application/\\.jbroot-[0-9A-Z]{16}(/.+)$";
     NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:pattern options:0 error:nil];
     NSTextCheckingResult *match = [regex firstMatchInString:_link options:0 range:NSMakeRange(0, [_link length])];
-    assert(match != nil);
+    if (match == nil) {
+        // Fail fast instead of asserting: in release builds assert() is a no-op,
+        // so a non-matching target would otherwise build a wrong ".jbroot" link.
+        return -1;
+    }
     
     NSString* target = [_link substringWithRange:[match rangeAtIndex:1]];
     NSString* newlink = [@".jbroot" stringByAppendingPathComponent:target];
     
-    assert(unlink(jbpath) == 0);
-    assert(symlink(newlink.fileSystemRepresentation, jbpath) == 0);
-    assert(access(jbpath, F_OK) == 0);
+    if(unlink(jbpath) != 0) {
+        return errno;
+    }
+    if(symlink(newlink.fileSystemRepresentation, jbpath) != 0) {
+        return errno;
+    }
+    if(access(jbpath, F_OK) != 0) {
+        return errno;
+    }
     
     return 0;
 }
