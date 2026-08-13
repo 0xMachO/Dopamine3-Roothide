@@ -97,6 +97,11 @@ CFPropertyListRef MGCopyAnswer(CFStringRef);
     return [[self privatePrebootPath] stringByAppendingPathComponent:bootManifestString];
 }
 
+/*
+// roothide: disabled — the hidden .jbroot-<jbrand> root is resolved by
+// DOEnvironmentManager(roothide) via find_jbroot(). This preboot implementation
+// is left here disabled (matching Dopamine 2.x roothide) so the jailbreak can
+// never silently fall back to a discoverable preboot path.
 - (void)locateJailbreakRoot
 {
     if (!gSystemInfo.jailbreakInfo.rootPath) {
@@ -212,6 +217,7 @@ CFPropertyListRef MGCopyAnswer(CFStringRef);
     
     return error;
 }
+*/
 
 - (BOOL)isArm64e
 {
