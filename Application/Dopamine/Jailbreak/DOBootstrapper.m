@@ -210,17 +210,20 @@ NSString *const bootstrapErrorDomain = @"BootstrapErrorDomain";
 - (BOOL)removeItemAtPathRobustly:(NSString *)path
 {
     // New procursus bootstraps (1800/1900) ship /private/var -> ../var and
-    // var/tmp -> ../tmp as symlinks. After the containing /var directory is moved
-    // away these become dangling, and removeItemAtPath: fails on dangling symlinks.
-    // unlink() operates on the link itself and tolerates ENOENT.
+    // var/tmp -> ../tmp as symlinks. After the containing /var dir is moved away
+    // these become dangling, and removeItemAtPath: can FOLLOW the link and delete
+    // its target instead of the link itself (the very symlink we just rewired).
+    // unlink() always removes the link itself, never following it, so try it first.
+    const char *cpath = path.fileSystemRepresentation;
+    if (unlink(cpath) == 0) {
+        return YES;
+    }
+    if (errno == ENOENT) {
+        return YES; // already gone
+    }
+    // Not a symlink/file (real directory in older bootstrap layouts).
     NSError *error = nil;
-    if ([[NSFileManager defaultManager] removeItemAtPath:path error:&error]) {
-        return YES;
-    }
-    if (unlink(path.fileSystemRepresentation) == 0) {
-        return YES;
-    }
-    return errno == ENOENT;
+    return [[NSFileManager defaultManager] removeItemAtPath:path error:&error];
 }
 
 - (NSError *)createSymlinkAtPath:(NSString *)path toPath:(NSString *)destinationPath createIntermediateDirectories:(BOOL)createIntermediate
