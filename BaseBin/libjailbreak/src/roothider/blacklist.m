@@ -49,6 +49,7 @@ NSString *getAppIdentifierFromPath(const char *path) {
 }
 
 NSArray* builtinApps = @[
+    @"com.opa334.Dopamine",
     @"com.opa334.Dopamine-roothide",
 ];
 

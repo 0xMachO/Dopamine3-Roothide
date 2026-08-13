@@ -119,7 +119,7 @@
                     return;
                 }
             }
-            [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/roothide/Dopamine2-roothide/releases"] options:@{} completionHandler:nil];
+            [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"https://github.com/Phantom-fahad/Dopamine3-Roothide/releases"] options:@{} completionHandler:nil];
             return;
         }
 
