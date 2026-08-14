@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
       - name: Xcode Setup
         uses: maxim-lobanov/setup-xcode@v1
@@ -27,21 +27,43 @@ jobs:
           xcode-version: latest-stable
 
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 1
+
+      # Cache Homebrew bottles so `brew install` skips downloads on later runs.
+      - name: Cache Homebrew
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew
+          key: homebrew-${{ runner.os }}-${{ runner.arch }}-v1
+          restore-keys: |
+            homebrew-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install Procursus
         uses: dhinakg/procursus-action@main
         with:
           packages: ldid findutils sed coreutils make
 
-      - name: Install better GNU Make
+      - name: Install build deps (make, libarchive, ccache)
         run: |
-          brew install make
-          echo "PATH=$(brew --prefix make)/libexec/gnubin:$PATH" >> $GITHUB_ENV
+          set -x
+          brew install make libarchive ccache
+          echo "$(brew --prefix make)/libexec/gnubin" >> "$GITHUB_PATH"
+
+      # THEOS + the pinned iOS 16.5 SDK are fully cacheable (rarely change).
+      - name: Cache THEOS + SDK
+        id: cache-theos
+        uses: actions/cache@v4
+        with:
+          path: theos
+          key: theos-88506b2c22e9e07dd4ed055f23c9e398a117a2c7
+          restore-keys: |
+            theos-
 
       - name: Install THEOS (roothide fork)
+        if: steps.cache-theos.outputs.cache-hit != 'true'
         run: |
           set -x
           export BASEDIR="$(pwd)"
@@ -56,15 +78,55 @@ jobs:
           rm $THEOS/sdks/iPhoneOS16.5.sdk.tar
           cd $BASEDIR
 
-      - name: Build and Install trustcache
+      # trustcache is a stable tool; cache the built binary (pinned commit).
+      - name: Cache trustcache binary
+        id: cache-trustcache
+        uses: actions/cache@v4
+        with:
+          path: trustcache-cache
+          key: trustcache-aa0e8847529cf76576fce8d2dbc9e088c8f1a0df
+
+      - name: Build and install trustcache
+        if: steps.cache-trustcache.outputs.cache-hit != 'true'
         run: |
           set -x
           git clone https://github.com/CRKatri/trustcache
           cd trustcache
+          git checkout aa0e8847529cf76576fce8d2dbc9e088c8f1a0df
           export CFLAGS="$CFLAGS -Wno-deprecated-declarations -I$(brew --prefix openssl)/include -arch arm64"
           export LDFLAGS="$LDFLAGS -L$(brew --prefix openssl)/lib -arch arm64"
           gmake -j$(sysctl -n hw.logicalcpu) OPENSSL=1
-          sudo cp trustcache /opt/procursus/bin/
+          cd ..
+          mkdir -p trustcache-cache
+          cp trustcache/trustcache trustcache-cache/trustcache
+          sudo cp trustcache/trustcache /opt/procursus/bin/
+
+      - name: Install trustcache (from cache)
+        if: steps.cache-trustcache.outputs.cache-hit == 'true'
+        run: |
+          sudo cp trustcache-cache/trustcache /opt/procursus/bin/
+
+      # ccache: transparently caches compiled objects across runs, so a small
+      # source change no longer recompiles the whole BaseBin tree.
+      - name: Cache ccache
+        id: cache-ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ runner.arch }}-v1
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Configure ccache
+        run: |
+          set -x
+          {
+            echo "CCACHE_DIR=$HOME/.ccache"
+            echo "CCACHE_SLOPPINESS=file_macro,time_macros,include_file_mtime,include_file_ctime,modules"
+            echo "CCACHE_MAXSIZE=2G"
+          } >> "$GITHUB_ENV"
+          # Sanity check: the wrapped iOS compiler must resolve before the build.
+          ccache xcrun -sdk iphoneos clang --version
 
       - name: Set Environment Variables
         run: |
@@ -76,15 +138,11 @@ jobs:
           echo "ctimestamp=${TS}" >> $GITHUB_ENV
           echo "shorthash=${SHASH}" >> $GITHUB_ENV
 
-      - name: Install libarchive
-        run: |
-          brew install libarchive
-
       - name: Verify Bootstraps (committed roothide layout)
         run: |
-            set -x
-            cd Application/Dopamine/Resources
-            ./download_bootstraps.sh
+          set -x
+          cd Application/Dopamine/Resources
+          ./download_bootstraps.sh
 
       - name: Download RootHide Manager
         run: |
@@ -94,6 +152,11 @@ jobs:
           ls -la Application/Dopamine/Resources/roothideapp.deb
 
       - name: Build
+        env:
+          # THEOS reads TARGET_CC/TARGET_CXX via `?=` (env takes precedence),
+          # so wrapping them in ccache is a transparent, non-breaking speedup.
+          TARGET_CC: ccache xcrun -sdk iphoneos clang
+          TARGET_CXX: ccache xcrun -sdk iphoneos clang++
         run: |
           set -x
           export BASEDIR="$(pwd)"
@@ -108,7 +171,7 @@ jobs:
 
       - name: Upload Artifact
         id: dopamine-latest-upload
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v4
         with:
           name: roothide-Dopamine-${{ env.version }}.tipa
           path: |
