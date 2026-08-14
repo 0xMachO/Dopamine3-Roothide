@@ -134,8 +134,6 @@ NSString* rootfsPrefix(NSString* path)
     return [@"/rootfs/" stringByAppendingPathComponent:path];
 }
 
-// libjailbreak/roothider/common.m — randomize jbroot cdhashes once at install.
-extern int randomizeJbrootBinaries(const char* jbrootPath);
 /***************************************************************/
 
 #define LIBKRW_DOPAMINE_BUNDLED_VERSION @"2.0.3"
@@ -1256,16 +1254,16 @@ int getCFMajorVersion(void)
         [[NSFileManager defaultManager] removeItemAtPath:jbrootPrefix(@"/.installed_palera1n") error:nil];
     }
 
-    // Randomize cdhashes once at install (not per-spawn): keeps roothide's
-    // cdhash anti-detection without the O_RDWR-during-spawn hang on iOS 18.
-    [[DOUIManager sharedInstance] sendLog:@"Randomizing Binaries" debug:NO];
-    NSString* _jbrootPath = find_jbroot(NO);
-    if (_jbrootPath) {
-        int randRet = randomizeJbrootBinaries(_jbrootPath.fileSystemRepresentation);
-        if (randRet != 0) {
-            STRAPLOG("randomizeJbrootBinaries failed: %d (non-fatal)", randRet);
-        }
-    }
+    // NOTE: cdhash randomization is intentionally DISABLED on iOS 16+.
+    // ensure_randomized_cdhash() opens each executable O_RDWR, and on iOS 16+
+    // an O_RDWR-open executable cannot be exec'd until the fd closes
+    // (EBADMACHO — see the comment in libjailbreak/src/roothider/recdhash.m).
+    // randomizeJbrootBinaries() also followed /usr/libexec symlinks into REAL
+    // system binaries (e.g. dirs_cleaner) and randomized those too, so at boot
+    // launchd got "boot task failure: dirs_cleaner - posix_spawn: 88 (Malformed
+    // Mach-o)". Vanilla Dopamine 3.x does NO cdhash randomization — trust uses
+    // the binaries' original cdhash. Match vanilla: skip randomization entirely.
+    // (cdhash anti-detection can be re-added later with an iOS 16+-safe method.)
 
     return nil;
 }
