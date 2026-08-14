@@ -264,7 +264,16 @@ int roothide_launchd___posix_spawn_posthook(pid_t *restrict pidp, const char *re
 	int proctype = 0;
 	posix_spawnattr_getprocesstype_np(attrp, &proctype);
 
-	bool should_suspend = (proctype != POSIX_SPAWN_PROC_TYPE_DRIVER);
+	// 2.x suspended every non-driver child to apply the kernel-side dyld patch
+	// and resumed it afterwards via jbdSpawnPatchChild. On iOS 16+/17+ the dyld
+	// patch is unavailable (injection is env-based: systemhook via
+	// DYLD_INSERT_LIBRARIES + dyldhook via the .fakelib dyld replacement), so
+	// suspending every child is pointless AND dangerous: suspending
+	// /sbin/launchd during the userspace reboot and then racing a SIGCONT resume
+	// leaves pid 1's main thread stuck (kThreadSuspended), starving watchdogd
+	// and firing a kernel watchdog timeout. Match vanilla 3.x — only suspend
+	// when the dyld patch is actually in use (iOS 15 arm64e).
+	bool should_suspend = dyld_patch_enabled() && (proctype != POSIX_SPAWN_PROC_TYPE_DRIVER);
 	bool should_resume = should_suspend && (flags & POSIX_SPAWN_START_SUSPENDED)==0;
 
 	if (should_suspend) {
