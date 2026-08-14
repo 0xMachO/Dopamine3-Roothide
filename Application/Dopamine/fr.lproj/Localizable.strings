@@ -22,7 +22,7 @@
 
 // Update View
 "Update_Status_Downloading" = "Téléchargement...";
-"Update_Status_Subtitle_Please_Wait" = "Veuillez patienter pendant que Dopamine télécharge et installe la mise à jour";
+"Update_Status_Subtitle_Please_Wait" = "Veuillez patienter pendant que RootHide télécharge et installe la mise à jour";
 "Update_Status_Installing" = "Installation...";
 "Update_Status_Subtitle_Restart_Soon" = "L'appareil redémarrera automatiquement une fois l'installation terminée";
 "Title_Changelog" = "Nouveautés";
@@ -76,9 +76,9 @@
 "Button_Continue" = "Continuer";
 
 // Duplicate Apps Errors
-"Duplicate_Apps_Error_Dopamine_App" = "Il y a plusieurs applications avec l'identifiant \"%@\" dans le répertoire d'application de Dopamine (\"%@\"). Impossible de continuer.";
-"Duplicate_Apps_Error_User_App" = "Les applications avec les identifiants %@ existent dans le répertoire d'application de Dopamine (\"%@\") mais sont également installées séparément sur le système. Impossible de continuer.";
-"Duplicate_Apps_Error_Icon_Cache" = "L'application avec l'identifiant \"%@\" existe dans le répertoire d'application de Dopamine (\"%@\") mais est également enregistrée dans le cache d'icônes sous un chemin différent (\"%@\"). Impossible de continuer.";
+"Duplicate_Apps_Error_Dopamine_App" = "Il y a plusieurs applications avec l'identifiant \"%@\" dans le répertoire d'application de RootHide (\"%@\"). Impossible de continuer.";
+"Duplicate_Apps_Error_User_App" = "Les applications avec les identifiants %@ existent dans le répertoire d'application de RootHide (\"%@\") mais sont également installées séparément sur le système. Impossible de continuer.";
+"Duplicate_Apps_Error_Icon_Cache" = "L'application avec l'identifiant \"%@\" existe dans le répertoire d'application de RootHide (\"%@\") mais est également enregistrée dans le cache d'icônes sous un chemin différent (\"%@\"). Impossible de continuer.";
 
 // Settings Lists
 "Theme" = "Thème";

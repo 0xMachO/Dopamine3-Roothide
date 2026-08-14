@@ -78,9 +78,9 @@
 "Button_Continue" = "继续";
 
 // Duplicate Apps Errors
-"Duplicate_Apps_Error_Dopamine_App" = "检测到多个标识符为 \"%@\" 的 App 在 Dopamine 的 App 目录中 (\"%@\")，无法继续。";
-"Duplicate_Apps_Error_User_App" = "检测到标识符为 \"%@\" 的 App 存在 Dopamine 的 App 目录中 (\"%@\") ，但其已被单独安装在系统上，无法继续。";
-"Duplicate_Apps_Error_Icon_Cache" = "检测到标识符为 \"%@\" 的 App 存在于 Dopamine 的 App 目录中 (\"%@\")，但其已在不同路径 (\"%@\") 下注册了图标缓存，无法继续。";
+"Duplicate_Apps_Error_Dopamine_App" = "检测到多个标识符为 \"%@\" 的 App 在 RootHide 的 App 目录中 (\"%@\")，无法继续。";
+"Duplicate_Apps_Error_User_App" = "检测到标识符为 \"%@\" 的 App 存在 RootHide 的 App 目录中 (\"%@\") ，但其已被单独安装在系统上，无法继续。";
+"Duplicate_Apps_Error_Icon_Cache" = "检测到标识符为 \"%@\" 的 App 存在于 RootHide 的 App 目录中 (\"%@\")，但其已在不同路径 (\"%@\") 下注册了图标缓存，无法继续。";
 
 // Settings Lists
 "Theme" = "主题";

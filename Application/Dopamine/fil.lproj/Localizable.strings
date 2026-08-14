@@ -76,9 +76,9 @@
 "Button_Continue" = "Ituloy";
 
 // Duplicate Apps Errors
-"Duplicate_Apps_Error_Dopamine_App" = "Mayroong maraming app na may identifier na \"%@\" sa loob ng Dopamines application directory (\"%@\"), kaya hindi pwedeng makapag-patuloy.";
-"Duplicate_Apps_Error_User_App" = "Ang mga app na may mga identifier na %@ ay umiiral sa Dopamines application directory (\"%@\") ngunit naka-install din nang hiwalay sa system, kaya hindi pwedeng makapag-patuloy.";
-"Duplicate_Apps_Error_Icon_Cache" = "Ang app na may identifier na \"%@\" ay umiiral sa Dopamine application directory (\"%@\") ngunit nakarehistro din sa icon cache sa ilalim ng ibang landas (\"%@\"), kaya hindi pwedeng makapag-patuloy.";
+"Duplicate_Apps_Error_Dopamine_App" = "Mayroong maraming app na may identifier na \"%@\" sa loob ng RootHides application directory (\"%@\"), kaya hindi pwedeng makapag-patuloy.";
+"Duplicate_Apps_Error_User_App" = "Ang mga app na may mga identifier na %@ ay umiiral sa RootHides application directory (\"%@\") ngunit naka-install din nang hiwalay sa system, kaya hindi pwedeng makapag-patuloy.";
+"Duplicate_Apps_Error_Icon_Cache" = "Ang app na may identifier na \"%@\" ay umiiral sa RootHide application directory (\"%@\") ngunit nakarehistro din sa icon cache sa ilalim ng ibang landas (\"%@\"), kaya hindi pwedeng makapag-patuloy.";
 
 // Settings Lists
 "Theme" = "Mga Theme";

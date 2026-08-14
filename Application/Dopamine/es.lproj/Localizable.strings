@@ -83,9 +83,9 @@
 "Button_Continue" = "Continuar";
 
 // Errores de apps duplicadas
-"Duplicate_Apps_Error_Dopamine_App" = "Hay varias apps con el identificador \"%@\" dentro del directorio de aplicaciones de Dopamine (\"%@\"). No se puede continuar.";
-"Duplicate_Apps_Error_User_App" = "Las apps con los identificadores %@ existen en el directorio de aplicaciones de Dopamine (\"%@\") pero también están instaladas por separado en el sistema. No se puede continuar.";
-"Duplicate_Apps_Error_Icon_Cache" = "La app con el identificador \"%@\" existe en el directorio de aplicaciones de Dopamine (\"%@\") pero también está registrada en la caché de iconos con una ruta diferente (\"%@\"). No se puede continuar.";
+"Duplicate_Apps_Error_Dopamine_App" = "Hay varias apps con el identificador \"%@\" dentro del directorio de aplicaciones de RootHide (\"%@\"). No se puede continuar.";
+"Duplicate_Apps_Error_User_App" = "Las apps con los identificadores %@ existen en el directorio de aplicaciones de RootHide (\"%@\") pero también están instaladas por separado en el sistema. No se puede continuar.";
+"Duplicate_Apps_Error_Icon_Cache" = "La app con el identificador \"%@\" existe en el directorio de aplicaciones de RootHide (\"%@\") pero también está registrada en la caché de iconos con una ruta diferente (\"%@\"). No se puede continuar.";
 
 // Listas de ajustes
 "Theme" = "Tema";
@@ -98,7 +98,7 @@
 
 // Solución alternativa DarkSword
 "Respring_Required" = "Se requiere respring";
-"Respring_Required_Message" = "El exploit de kernel seleccionado requiere crear un mapeo de memoria contiguo que, en este dispositivo, solo es posible mediante una solución especial que realiza un respring. Una vez completado el respring, vuelve a abrir la app Dopamine y pulsa \"Jailbreak\" de nuevo.";
+"Respring_Required_Message" = "El exploit de kernel seleccionado requiere crear un mapeo de memoria contiguo que, en este dispositivo, solo es posible mediante una solución especial que realiza un respring. Una vez completado el respring, vuelve a abrir la app RootHide y pulsa \"Jailbreak\" de nuevo.";
 "Respring_Required_Notice_A8" = "En tu dispositivo, esta solución no funciona siempre y puede que tengas que aplicarla varias veces hasta que esta alerta deje de aparecer.";
 "Apply_Workaround" = "Aplicar solución";
 "Respring_Cancel" = "Cancelar";

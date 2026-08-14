@@ -79,9 +79,9 @@
 "Button_Continue" = "Tiếp tục";
 
 // Duplicate Apps Errors
-"Duplicate_Apps_Error_Dopamine_App" = "Có nhiều ứng dụng với cùng một tên định danh \"%@\" được cài đặt trong thư mục ứng dụng của Dopamine (\"%@\"). Không thể tiếp tục.";
-"Duplicate_Apps_Error_User_App" = "Ứng dụng có tên định danh \"%@\" đã được cài đặt trong thư mục ứng dụng của Dopamine (\"%@\"), nhưng đồng thời cũng đã được cài đặt trên hệ thống. Không thể tiếp tục.";
-"Duplicate_Apps_Error_Icon_Cache" = "Ứng dụng có tên định danh \"%@\" đã được cài đặt trong thư mục ứng dụng của Dopamine (\"%@\"), nhưng lại được ghi bên trong icon cache với một đường dẫn khác (\"%@\"). Không thể tiếp tục.";
+"Duplicate_Apps_Error_Dopamine_App" = "Có nhiều ứng dụng với cùng một tên định danh \"%@\" được cài đặt trong thư mục ứng dụng của RootHide (\"%@\"). Không thể tiếp tục.";
+"Duplicate_Apps_Error_User_App" = "Ứng dụng có tên định danh \"%@\" đã được cài đặt trong thư mục ứng dụng của RootHide (\"%@\"), nhưng đồng thời cũng đã được cài đặt trên hệ thống. Không thể tiếp tục.";
+"Duplicate_Apps_Error_Icon_Cache" = "Ứng dụng có tên định danh \"%@\" đã được cài đặt trong thư mục ứng dụng của RootHide (\"%@\"), nhưng lại được ghi bên trong icon cache với một đường dẫn khác (\"%@\"). Không thể tiếp tục.";
 
 // Settings Lists
 "Theme" = "Chủ đề";

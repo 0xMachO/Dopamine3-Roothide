@@ -83,9 +83,9 @@
 "Button_Continue" = "Weiter";
 
 // Duplicate Apps Errors
-"Duplicate_Apps_Error_Dopamine_App" = "Es existieren mehrere Apps mit unter der Kennung \"%@\" in Dopamines App-Ordner (\"%@\"). Fortfahren des Jailbreaks nicht möglich.";
-"Duplicate_Apps_Error_User_App" = "Die Apps mit der Kennung %@ existieren in Dopamines App-Ordner (\"%@\"), sind aber separat ebenfalls auf dem System installiert. Fortfahren des Jailbreaks nicht möglich.";
-"Duplicate_Apps_Error_Icon_Cache" = "Die App mit der Kennung \"%@\" existiert in Dopamines App-Ordner (\"%@\") aber ist ebenfalls im Icon-Cache unter einem anderen Pfad (\"%@\") registriert. Fortfahren des Jailbreaks nicht möglich.";
+"Duplicate_Apps_Error_Dopamine_App" = "Es existieren mehrere Apps mit unter der Kennung \"%@\" in RootHides App-Ordner (\"%@\"). Fortfahren des Jailbreaks nicht möglich.";
+"Duplicate_Apps_Error_User_App" = "Die Apps mit der Kennung %@ existieren in RootHides App-Ordner (\"%@\"), sind aber separat ebenfalls auf dem System installiert. Fortfahren des Jailbreaks nicht möglich.";
+"Duplicate_Apps_Error_Icon_Cache" = "Die App mit der Kennung \"%@\" existiert in RootHides App-Ordner (\"%@\") aber ist ebenfalls im Icon-Cache unter einem anderen Pfad (\"%@\") registriert. Fortfahren des Jailbreaks nicht möglich.";
 
 // Settings Lists
 "Theme" = "Farbschema";

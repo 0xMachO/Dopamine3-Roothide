@@ -83,9 +83,9 @@
 "Button_Continue" = "繼續";
 
 // Duplicate Apps Errors
-"Duplicate_Apps_Error_Dopamine_App" = "有多個識別碼為「%@」的應用程式存在於 Dopamine 應用程式目錄（「%@」）內。無法繼續。";
-"Duplicate_Apps_Error_User_App" = "識別碼為 %@ 的應用程式存在於 Dopamine 應用程式目錄（「%@」）中，但也另外安裝於系統上。無法繼續。";
-"Duplicate_Apps_Error_Icon_Cache" = "識別碼為「%@」的應用程式存在於 Dopamine 應用程式目錄（「%@」）中，但也以不同的路徑（「%@」）註冊於圖示快取中。無法繼續。";
+"Duplicate_Apps_Error_Dopamine_App" = "有多個識別碼為「%@」的應用程式存在於 RootHide 應用程式目錄（「%@」）內。無法繼續。";
+"Duplicate_Apps_Error_User_App" = "識別碼為 %@ 的應用程式存在於 RootHide 應用程式目錄（「%@」）中，但也另外安裝於系統上。無法繼續。";
+"Duplicate_Apps_Error_Icon_Cache" = "識別碼為「%@」的應用程式存在於 RootHide 應用程式目錄（「%@」）中，但也以不同的路徑（「%@」）註冊於圖示快取中。無法繼續。";
 
 // Settings Lists
 "Theme" = "主題";
@@ -98,7 +98,7 @@
 
 // DarkSword Workaround
 "Respring_Required" = "需要重新啟動 SpringBoard";
-"Respring_Required_Message" = "所選的核心漏洞利用需要建立連續的記憶體映射，而在此裝置上只能透過會重新啟動 SpringBoard 的特殊因應措施來完成。重新啟動 SpringBoard 後，請再次開啟 Dopamine 並按下「越獄」。";
+"Respring_Required_Message" = "所選的核心漏洞利用需要建立連續的記憶體映射，而在此裝置上只能透過會重新啟動 SpringBoard 的特殊因應措施來完成。重新啟動 SpringBoard 後，請再次開啟 RootHide 並按下「越獄」。";
 "Respring_Required_Notice_A8" = "在您的裝置上，此因應措施不一定每次都能成功，可能需要重複套用數次，直到這個提示不再出現。";
 "Apply_Workaround" = "套用因應措施";
 "Respring_Cancel" = "取消";

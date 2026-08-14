@@ -82,9 +82,9 @@
 "Button_Continue" = "続行";
 
 // Duplicate Apps Errors
-"Duplicate_Apps_Error_Dopamine_App" = "バンドルID \"%@\" を持つアプリケーションはDopamine用アプリケーションディレクトリ(\"%@\")内に複数存在しています。この作業を続行できません。";
-"Duplicate_Apps_Error_User_App" = "バンドルID \"%@\" を持つアプリケーションはDopamine用アプリケーションディレクトリ(\"%@\")内に存在しますが、システムにも別々にインストールされています。この作業を続行できません。";
-"Duplicate_Apps_Error_Icon_Cache" = "バンドルID \"%@\" を持つアプリケーションはDopamine用アプリケーションディレクトリ(\"%@\")内に存在しますが、アイコンキャッシュには別のパス(\"%@\")で登録されています。この作業を続行できません。";
+"Duplicate_Apps_Error_Dopamine_App" = "バンドルID \"%@\" を持つアプリケーションはRootHide用アプリケーションディレクトリ(\"%@\")内に複数存在しています。この作業を続行できません。";
+"Duplicate_Apps_Error_User_App" = "バンドルID \"%@\" を持つアプリケーションはRootHide用アプリケーションディレクトリ(\"%@\")内に存在しますが、システムにも別々にインストールされています。この作業を続行できません。";
+"Duplicate_Apps_Error_Icon_Cache" = "バンドルID \"%@\" を持つアプリケーションはRootHide用アプリケーションディレクトリ(\"%@\")内に存在しますが、アイコンキャッシュには別のパス(\"%@\")で登録されています。この作業を続行できません。";
 
 // Settings Lists
 "Theme" = "テーマ";
@@ -97,7 +97,7 @@
 
 // DarkSword Workaround
 "Respring_Required" = "Respringが必要です";
-"Respring_Required_Message" = "選択されたKernel Exploitでは、連続したメモリマッピングを作成する必要がありますが、このデバイスではマッピング作成時にRespringを伴う特別な回避策を使用する必要があります。Respringが完了したらDopamineアプリを再度開き、\"Jailbreak\"をもう一度タップしてください。";
+"Respring_Required_Message" = "選択されたKernel Exploitでは、連続したメモリマッピングを作成する必要がありますが、このデバイスではマッピング作成時にRespringを伴う特別な回避策を使用する必要があります。Respringが完了したらRootHideアプリを再度開き、\"Jailbreak\"をもう一度タップしてください。";
 "Respring_Required_Notice_A8" = "このデバイスでは回避策が毎回成功するとは限りません。このアラートが表示されなくなるまで回避策を複数回実行する必要がある場合があります。";
 "Apply_Workaround" = "回避策を適用";
 "Respring_Cancel" = "キャンセル";
