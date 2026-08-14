@@ -181,6 +181,16 @@ int __no_need_to_trust_now__(const char* path)
 	return 0;
 }
 
+// On iOS 16+ the dyld patch is unavailable, so the kernel's trustcache
+// (backed by TXM on iOS 17+) must contain the (randomized) cdhash of every
+// binary before it is spawned. This mirrors roothide_launchd_trust_executable
+// in launchdhook/src/roothider.m: dyld_patch_enabled() ?
+// systemwide_trust_file_by_path : roothide_trust_executable_recurse.
+static int roothide_trust_binary(const char* path)
+{
+	return jbclient_trust_executable_recurse(path, NULL);
+}
+
 #define NBINPREFS       4
 #define POSIX_SPAWN_PROC_TYPE_DRIVER 0x700
 int posix_spawnattr_getprocesstype_np(const posix_spawnattr_t * __restrict, int * __restrict) __API_AVAILABLE(macos(10.8), ios(6.0));
@@ -201,7 +211,9 @@ int roothide_systemhook___posix_spawn_prehook(pid_t *restrict pidp, const char *
 
 	if(!jbclient_dyld_patch_enabled())
 	{
-		trust_binary = __no_need_to_trust_now__;
+		// dyld patch unavailable: the binary must be added to the trustcache
+		// (randomized cdhash) or AMFI/TXM will SIGKILL it at load time.
+		trust_binary = roothide_trust_binary;
 	}
 
 	return posix_spawn_hook_shared(pidp, path, desc, argv, envp, orig, trust_binary, set_process_debugged, jetsamMultiplier);
