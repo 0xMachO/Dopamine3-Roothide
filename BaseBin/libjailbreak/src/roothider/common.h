@@ -60,6 +60,7 @@ int ensure_randomized_cdhash_for_slice(const char* inputPath, uint64_t offset, v
 char* generate_sandbox_extensions(audit_token_t *processToken, bool writable);
 
 int randomizeAndLoadBasebinTrustcache(const char* basebinPath);
+int randomizeJbrootBinaries(const char* jbrootPath);
 
 bool otherJailbreakActived(bool postexploit);
 

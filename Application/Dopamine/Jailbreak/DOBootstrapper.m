@@ -133,6 +133,9 @@ NSString* rootfsPrefix(NSString* path)
     }
     return [@"/rootfs/" stringByAppendingPathComponent:path];
 }
+
+// libjailbreak/roothider/common.m — randomize jbroot cdhashes once at install.
+extern int randomizeJbrootBinaries(const char* jbrootPath);
 /***************************************************************/
 
 #define LIBKRW_DOPAMINE_BUNDLED_VERSION @"2.0.3"
@@ -1251,6 +1254,17 @@ int getCFMajorVersion(void)
         [@"" writeToFile:jbrootPrefix(@"/.installed_palera1n") atomically:YES encoding:NSUTF8StringEncoding error:nil];
     } else {
         [[NSFileManager defaultManager] removeItemAtPath:jbrootPrefix(@"/.installed_palera1n") error:nil];
+    }
+
+    // Randomize cdhashes once at install (not per-spawn): keeps roothide's
+    // cdhash anti-detection without the O_RDWR-during-spawn hang on iOS 18.
+    [[DOUIManager sharedInstance] sendLog:@"Randomizing Binaries" debug:NO];
+    NSString* _jbrootPath = find_jbroot(NO);
+    if (_jbrootPath) {
+        int randRet = randomizeJbrootBinaries(_jbrootPath.fileSystemRepresentation);
+        if (randRet != 0) {
+            STRAPLOG("randomizeJbrootBinaries failed: %d (non-fatal)", randRet);
+        }
     }
 
     return nil;

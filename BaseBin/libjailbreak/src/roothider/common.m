@@ -578,6 +578,46 @@ int randomizeAndLoadBasebinTrustcache(const char* basebinPath)
     return 0;
 }
 
+int randomizeJbrootBinaries(const char* jbrootPath)
+{
+    // Randomize the cdhash of every Mach-O binary in the jbroot once at
+    // install time. The 2.x recurse path did this lazily on every spawn
+    // (open O_RDWR + recurse deps), which hung launchd during boot on iOS 18
+    // (watchdog timeout). Doing it here — before any jbroot process runs — is
+    // safe and idempotent; the spawn-time trust then just reads the
+    // already-randomized cdhash via systemwide_trust_file_by_path.
+    const char* subdirs[] = {
+        "/bin", "/sbin", "/usr/bin", "/usr/sbin", "/usr/lib",
+        "/usr/libexec", "/usr/local/bin", "/usr/local/lib",
+        "/Applications", "/Library",
+    };
+
+    uint32_t randomizedCount = 0;
+    uint32_t skippedCount = 0;
+
+    for (size_t i = 0; i < sizeof(subdirs)/sizeof(subdirs[0]); i++) {
+        NSString* dirPath = [@(jbrootPath) stringByAppendingPathComponent:@(subdirs[i])];
+        NSDirectoryEnumerator<NSURL *> *enumerator = [[NSFileManager defaultManager] enumeratorAtURL:[NSURL fileURLWithPath:dirPath] includingPropertiesForKeys:nil options:0 errorHandler:nil];
+        if(!enumerator) continue;
+
+        for(NSURL* fileURL in enumerator) {
+            NSNumber* isFile = nil;
+            [fileURL getResourceValue:&isFile forKey:NSURLIsRegularFileKey error:nil];
+            if(!isFile || !isFile.boolValue) continue;
+
+            cdhash_t cdhash = {0};
+            if(ensure_randomized_cdhash(fileURL.path.fileSystemRepresentation, cdhash) == 0) {
+                randomizedCount++;
+            } else {
+                skippedCount++;
+            }
+        }
+    }
+
+    JBLogDebug("randomizeJbrootBinaries: randomized %u, skipped %u", randomizedCount, skippedCount);
+    return 0;
+}
+
 kern_return_t bootstrap_look_up(mach_port_t port, const char *service, mach_port_t *server_port);
 
 bool otherJailbreakActived(bool postexploit)

@@ -168,11 +168,16 @@ void roothide_launchd_postinit(bool firstLoad)
 	// Only hand the spawned hookd over when its checkin delivered a valid server
 	// port; otherwise keep hookd_provider's lazy respawn as fallback (a NULL port
 	// would make launchd_hookd_send_msg skip the respawn and then send to NULL).
-	if(initJailbreakd(firstLoad) == 0 && MACH_PORT_VALID(gSpawnedHookdPort)) {
-		gHookdPid = gSpawnedHookdPid;
-		gHookdPort = gSpawnedHookdPort;
-	} else {
-		JBLogError("initJailbreakd failed, continuing without hookd");
+	// hookd is only needed on iOS 19+ (litehook routes memory hooks through it).
+	// On iOS 18 vanilla 3.x never spawns it; doing so adds a 10s mach_msg wait
+	// on launchd's main thread during boot for nothing.
+	if (@available(iOS 19.0, *)) {
+		if(initJailbreakd(firstLoad) == 0 && MACH_PORT_VALID(gSpawnedHookdPort)) {
+			gHookdPid = gSpawnedHookdPid;
+			gHookdPort = gSpawnedHookdPort;
+		} else {
+			JBLogError("initJailbreakd failed, continuing without hookd");
+		}
 	}
 }
 
@@ -239,7 +244,13 @@ void fix__iosConnect()
 
 int roothide_launchd_trust_executable(const char* path)
 {
-	return dyld_patch_enabled() ? systemwide_trust_file_by_path(path) : roothide_trust_executable_recurse(path, "/", NULL);
+	// iOS 17+: the dyld patch is unavailable and TXM's cs_allow_invalid
+	// (applied in systemwide_process_checkin) authorizes dylibs/tweaks, so
+	// per-spawn trust only needs the executable's own (already-randomized)
+	// cdhash. The 2.x recurse+randomize path opened every binary O_RDWR and
+	// recursed into all deps on every spawn, which hung launchd during boot
+	// (watchdog timeout). Mirrors vanilla 3.x launchdhook (spawn_hook.c).
+	return systemwide_trust_file_by_path(path);
 }
 
 int roothide_launchd___posix_spawn_posthook(pid_t *restrict pidp, const char *restrict path, struct _posix_spawn_args_desc *desc, char *const argv[restrict], char *const envp[restrict])

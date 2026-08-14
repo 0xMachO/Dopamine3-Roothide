@@ -181,17 +181,17 @@ int __no_need_to_trust_now__(const char* path)
 	return 0;
 }
 
-// On iOS 16+ the dyld patch is unavailable, so the kernel's trustcache
-// (backed by TXM on iOS 17+) must contain the (randomized) cdhash of every
-// binary before it is spawned. This mirrors roothide_launchd_trust_executable
-// in launchdhook/src/roothider.m: dyld_patch_enabled() ?
-// systemwide_trust_file_by_path : roothide_trust_executable_recurse.
+// iOS 17+: the dyld patch is unavailable and TXM's cs_allow_invalid
+// (applied via systemwide_process_checkin) authorizes dylibs/tweaks, so
+// per-spawn trust only needs the executable's own (already-randomized)
+// cdhash. The 2.x recurse path (jbclient_trust_executable_recurse) opened
+// every binary O_RDWR + recursed all deps on every spawn and hung boot.
+// Mirrors vanilla 3.x systemhook (main.c: jbclient_trust_file_by_path).
 static int roothide_trust_binary(const char* path)
 {
-	return jbclient_trust_executable_recurse(path, NULL);
+	return jbclient_trust_file_by_path(path);
 }
 
-#define NBINPREFS       4
 #define POSIX_SPAWN_PROC_TYPE_DRIVER 0x700
 int posix_spawnattr_getprocesstype_np(const posix_spawnattr_t * __restrict, int * __restrict) __API_AVAILABLE(macos(10.8), ios(6.0));
 
@@ -229,36 +229,9 @@ int roothide_systemhook___posix_spawn_posthook(pid_t *restrict pidp, const char 
 		spawnConfig = spawn_config_for_executable(path, argv);
 
 		if (spawnConfig & kSpawnConfigTrust) {
-			size_t outCount = 0;
-			bool preferredArchsSet = false;
-			cpu_type_t preferredTypes[NBINPREFS] = {0};
-			cpu_subtype_t preferredSubtypes[NBINPREFS] = {0};
-			if (posix_spawnattr_getarchpref_np(attrp, 4, preferredTypes, preferredSubtypes, &outCount) == 0) {
-				for (size_t i = 0; i < outCount; i++) {
-					if (preferredTypes[i] != 0 || preferredSubtypes[i] != UINT32_MAX) {
-						preferredArchsSet = true;
-						break;
-					}
-				}
-			}
-
-			xpc_object_t preferredArchsArray = NULL;
-			if (preferredArchsSet) {
-				preferredArchsArray = xpc_array_create_empty();
-				for (size_t i = 0; i < outCount; i++) {
-					xpc_object_t curArch = xpc_dictionary_create_empty();
-					xpc_dictionary_set_uint64(curArch, "type", preferredTypes[i]);
-					xpc_dictionary_set_uint64(curArch, "subtype", preferredSubtypes[i]);
-					xpc_array_set_value(preferredArchsArray, XPC_ARRAY_APPEND, curArch);
-					xpc_release(curArch);
-				}
-			}
-
-			jbclient_trust_executable_recurse(path, preferredArchsArray);
-
-			if (preferredArchsArray) {
-				xpc_release(preferredArchsArray);
-			}
+			// iOS 17+: trust only the executable's own (already-randomized)
+			// cdhash; the 2.x recurse path is too heavy on every spawn.
+			jbclient_trust_file_by_path(path);
 		}
 	}
 
