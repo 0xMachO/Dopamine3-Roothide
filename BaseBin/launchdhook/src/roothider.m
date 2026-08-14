@@ -361,9 +361,11 @@ int roothide_launchd___posix_spawn_prehook(pid_t *restrict pidp, const char *res
 	}
 
 	if(strcmp(path, "/sbin/launchd") == 0) {
-		short flags = 0;
-		posix_spawnattr_getflags(attrp, &flags);
-		posix_spawnattr_setflags(attrp, flags | POSIX_SPAWN_START_SUSPENDED);
+		// 2.x leftover: dyld-patch injection used to spawn launchd suspended and
+		// then resume it after patching. 3.x injects via DYLD_INSERT_LIBRARIES
+		// (env), so suspending pid 1 here leaves its main thread stuck and the
+		// boot deadlocks (watchdogd never spawns -> kernel watchdog timeout).
+		// Spawn it normally, exactly like vanilla 3.x does.
 		return __posix_spawn_hook(pidp, path, desc, argv, envp);
 	}
 
