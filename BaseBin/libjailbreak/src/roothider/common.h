@@ -57,6 +57,12 @@ int ensure_dyld_trustcache(const char* path);
 int ensure_randomized_cdhash(const char* inputPath, void* cdhashOut);
 int ensure_randomized_cdhash_for_slice(const char* inputPath, uint64_t offset, void* cdhashOut);
 
+// Read-only cdhash lookup — never opens the file for writing. Safe to call on
+// already-randomized executables that are currently running (e.g. the fakelib
+// dyld during boot), unlike ensure_randomized_cdhash which opens O_RDWR.
+int read_cdhash(const char* inputPath, void* cdhashOut);
+int read_cdhash_for_slice(const char* inputPath, uint64_t offset, void* cdhashOut);
+
 char* generate_sandbox_extensions(audit_token_t *processToken, bool writable);
 
 int randomizeAndLoadBasebinTrustcache(const char* basebinPath);

@@ -796,8 +796,14 @@ int ensure_dyld_trustcache(const char* path)
     JBLogDebug("trusting dyld file: %s", path);
 
     cdhash_t cdhash = {0};
-    if(ensure_randomized_cdhash(path, cdhash) != 0) {
-        JBLogError("Error: failed to ensure randomized cdhash: %s\n", path);
+    // The dyld is already randomized once at install time
+    // (randomizeAndLoadBasebinTrustcache / file_collect_untrusted_cdhashes).
+    // Re-opening it O_RDWR here — while launchd itself is running it — marks
+    // it dirty on iOS 16+, so the next spawn (dirs_cleaner) fails with
+    // EBADMACHO (88) and launchd panics with "boot task failure". Read the
+    // current cdhash read-only instead.
+    if(read_cdhash(path, cdhash) != 0) {
+        JBLogError("Error: failed to read cdhash: %s\n", path);
         return -1;
     }
 

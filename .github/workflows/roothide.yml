@@ -19,7 +19,10 @@ concurrency:
 
 jobs:
   build:
-    runs-on: macos-14
+    # macos-latest (not macos-14): newer Xcode/SDK provides sys/fileport.h,
+    # which DarkSword/ClearSword (iOS 18.x exploits) include. macos-14 pins
+    # Xcode 16.2 whose iOS 18.2 SDK lacks it -> build fails.
+    runs-on: macos-latest
     steps:
       - name: Xcode Setup
         uses: maxim-lobanov/setup-xcode@v1

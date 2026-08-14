@@ -6,6 +6,8 @@
 #include <choma/Host.h>
 #include <choma/MachOByteOrder.h>
 #include <choma/CodeDirectory.h>
+#include <choma/FileStream.h>
+#include <choma/MemoryStream.h>
 
 #include "../libjailbreak.h"
 #include "common.h"
@@ -81,6 +83,75 @@ MachO* fat_find_slice_by_offset(Fat* fat, uint64_t offset)
 int ensure_randomized_cdhash(const char* inputPath, void* cdhashOut)
 {
 	return ensure_randomized_cdhash_for_slice(inputPath, -1, cdhashOut);
+}
+
+/* Read-only cdhash of an already-randomized binary.
+ *
+ * ensure_randomized_cdhash* opens the file O_RDWR unconditionally (see
+ * fat_init_for_writing -> file_stream_init_from_path(FILE_STREAM_FLAG_WRITABLE)),
+ * which on iOS 16+ marks a running executable dirty and makes the next exec fail
+ * with EBADMACHO (88, "Malformed Mach-o file"). During boot
+ * (ensure_dyld_trustcache) the dyld has already been randomized at install time
+ * by randomizeAndLoadBasebinTrustcache, so we only need to READ its current
+ * cdhash — never open it for writing. This returns the same cdhash as the
+ * "already patched" branch of ensure_randomized_cdhash_for_slice, but via a
+ * read-only (O_RDONLY) stream.
+ */
+int read_cdhash_for_slice(const char* inputPath, uint64_t offset, void* cdhashOut)
+{
+	MemoryStream *stream = file_stream_init_from_path(inputPath, 0, FILE_STREAM_SIZE_AUTO, 0);
+	if (!stream) {
+		JBLogError("Error: failed to open (read-only): %s\n", inputPath);
+		return -1;
+	}
+
+	Fat* fat = fat_init_from_memory_stream(stream);
+	if (!fat) {
+		memory_stream_free(stream);
+		return -1;
+	}
+
+	MachO *macho = (offset==-1) ? roothide_fat_find_preferred_slice(fat) : fat_find_slice_by_offset(fat, offset);
+	if (!macho) {
+		JBLogError("Error: failed to find preferred slice: %s\n", inputPath);
+		fat_free(fat);
+		return -1;
+	}
+
+	CS_SuperBlob *superblob = macho_read_code_signature(macho);
+	if (!superblob) {
+		JBLogError("Error: failed to read code signature: %s\n", inputPath);
+		fat_free(fat);
+		return -1;
+	}
+
+	CS_DecodedSuperBlob *decodedSuperblob = csd_superblob_decode(superblob);
+	if (!decodedSuperblob) {
+		JBLogError("Error: failed to decode superblob: %s\n", inputPath);
+		free(superblob);
+		fat_free(fat);
+		return -1;
+	}
+
+	CS_DecodedBlob *bestCDBlob = csd_superblob_find_best_code_directory(decodedSuperblob);
+	int retval = -1;
+	if (bestCDBlob) {
+		retval = csd_code_directory_calculate_hash(bestCDBlob, cdhashOut);
+	}
+	else {
+		JBLogError("Error: failed to find best code directory: %s\n", inputPath);
+	}
+
+	csd_superblob_free(decodedSuperblob);
+	free(superblob);
+	fat_free(fat);
+
+	return retval;
+}
+
+int read_cdhash(const char* inputPath, void* cdhashOut)
+{
+	return read_cdhash_for_slice(inputPath, -1, cdhashOut);
 }
 
 /* on ios16(+?)
