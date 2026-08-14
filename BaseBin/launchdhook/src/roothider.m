@@ -30,6 +30,41 @@ int roothide_trust_executable_recurse(const char *executablePath, const char *pr
 extern pid_t gSpawnedHookdPid;
 extern mach_port_t gSpawnedHookdPort;
 
+static bool prepare_dynamic_systemhook_alias(void)
+{
+	uint64_t brand = jbinfo(jbrand);
+	NSString *sourcePath = [NSString stringWithFormat:@"%@/basebin/systemhook.dylib", JBROOT_PATH(@"")];
+	NSString *storedPath = [NSString stringWithFormat:@"%@/basebin/systemhook.dylib.%016llX", JBROOT_PATH(@""), brand];
+	char publishedPath[PATH_MAX] = {0};
+	snprintf(publishedPath, sizeof(publishedPath), "/usr/lib/systemhook.dylib.%016llX", brand);
+
+	// A BaseBin update supplies a new canonical source. Replace the staged
+	// hidden copy atomically enough for the launchd lifecycle before publishing
+	// its namecache alias. If no new source exists, retain a verified prior copy.
+	if (access(sourcePath.fileSystemRepresentation, R_OK) == 0) {
+		[[NSFileManager defaultManager] removeItemAtPath:storedPath error:nil];
+		if (![[NSFileManager defaultManager] moveItemAtPath:sourcePath toPath:storedPath error:nil]) {
+			JBLogError("RootHide: failed to stage dynamic systemhook");
+			return false;
+		}
+	}
+	if (access(storedPath.fileSystemRepresentation, R_OK) != 0) {
+		JBLogError("RootHide: systemhook source is unavailable");
+		return false;
+	}
+
+	if (access(publishedPath, F_OK) != 0 && unsandbox("/usr/lib", storedPath.fileSystemRepresentation) != 0) {
+		JBLogError("RootHide: failed to publish dynamic systemhook alias");
+		return false;
+	}
+
+	if (!systemhook_set_injection_path(publishedPath)) {
+		JBLogError("RootHide: rejected dynamic systemhook alias");
+		return false;
+	}
+	return true;
+}
+
 //from systemhook/src/roothider_common.c (compiled into launchdhook)
 bool isRemovableBundlePath(const char* path);
 bool hasTrollstoreMarker(const char* path);
@@ -101,7 +136,13 @@ void roothide_launchd_postinit(bool firstLoad)
 
 	launchdhookFirstLoad = firstLoad;
 
-	exec_set_patch(true);
+	// Do not enable process patching until the per-jailbreak systemhook alias
+	// exists. This deliberately fails closed instead of restoring FakeLib.
+	bool systemhookReady = prepare_dynamic_systemhook_alias();
+	exec_set_patch(systemhookReady);
+	if (!systemhookReady) {
+		JBLogError("RootHide: systemhook alias unavailable; injection remains disabled");
+	}
 
 	if(firstLoad)
 	{
@@ -438,9 +479,12 @@ int roothide_launchd___posix_spawn_prehook(pid_t *restrict pidp, const char *res
 		}
 		else
 		{
-			char **envc = envbuf_mutcopy((const char **)envp);
+							char **envc = envbuf_mutcopy((const char **)envp);
+				systemhook_strip_injection(&envc);
+				envbuf_unsetenv(&envc, "DYLD_IN_CACHE");
 
-			//choicy may set these 
+				// Choicy may set these.
+
 			envbuf_unsetenv(&envc, "_SafeMode");
 			envbuf_unsetenv(&envc, "_MSSafeMode");
 	

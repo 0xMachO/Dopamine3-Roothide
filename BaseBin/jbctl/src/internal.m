@@ -1,7 +1,6 @@
 #import "internal.h"
 #import <Foundation/Foundation.h>
 #import <libjailbreak/libjailbreak.h>
-#import <sys/mount.h>
 #import <libjailbreak/stock_fixes.h>
 
 SInt32 CFUserNotificationDisplayAlert(CFTimeInterval timeout, CFOptionFlags flags, CFURLRef iconURL, CFURLRef soundURL, CFURLRef localizationURL, CFStringRef alertHeader, CFStringRef alertMessage, CFStringRef defaultButtonTitle, CFStringRef alternateButtonTitle, CFStringRef otherButtonTitle, CFOptionFlags *responseFlags) API_AVAILABLE(ios(3.0));
@@ -14,82 +13,21 @@ void execute_unsandboxed(void (^block)(void))
 	jbclient_root_steal_ucred(credBackup, NULL);
 }
 
-int mount_unsandboxed(const char *type, const char *dir, int flags, void *data)
-{
-	__block int r = 0;
-	execute_unsandboxed(^{
-		r = mount(type, dir, flags, data);
-	});
-	return r;
-}
-
-int unmount_unsandboxed(const char *dir, int flags)
-{
-	__block int r = 0;
-	execute_unsandboxed(^{
-		r = unmount(dir, flags);
-	});
-	return r;
-}
-
-bool is_protected(const char *path)
-{
-	struct statfs sb;
-	statfs(path, &sb);
-	return strcmp(path, sb.f_mntonname) == 0;
-}
-
-int ensure_protected(const char *path)
-{
-	if (!is_protected(path)) {
-		return mount_unsandboxed("bindfs", path, 0, (void *)path);
-	}
-	return 0;
-}
-
-int ensure_unprotected(const char *path)
-{
-	if (is_protected(path)) {
-		return unmount_unsandboxed(path, MNT_FORCE);
-	}
-	return 0;
-}
-
+// Dopamine 3's original protection and FakeLib commands used global bindfs
+// mounts. RootHide keeps the generated dyld private to JBROOT instead, so these
+// compatibility commands are intentionally no-ops. Retaining their command
+// surface prevents stale callers from failing while guaranteeing that normal
+// runtime never creates a jailbreak-owned mount.
 int protection_set_active(bool active)
 {
-	int r = 0;
-	if (active) {
-		// Protect /private/preboot/UUID/<System, usr> from being modified by bind mounting them on top of themselves
-		// This protects dumb users from accidentally deleting these, which would induce a recovery loop after rebooting
-		r |= ensure_protected(prebootUUIDPath("/System"));
-		r |= ensure_protected(prebootUUIDPath("/usr"));
-	}
-	else {
-		r |= ensure_unprotected(prebootUUIDPath("/System"));
-		r |= ensure_unprotected(prebootUUIDPath("/usr"));
-	}
-	return r;
-}
-
-bool fakelib_is_mounted(void)
-{
-	struct statfs fsb;
-    if (statfs("/usr/lib", &fsb) != 0) return NO;
-    return strcmp(fsb.f_mntonname, "/usr/lib") == 0;
+	(void)active;
+	return 0;
 }
 
 int fakelib_set_mounted(bool mounted)
 {
-	int r = 0;
-	if (mounted != fakelib_is_mounted()) {
-		if (mounted) {
-			r = mount_unsandboxed("bindfs", "/usr/lib", MNT_RDONLY, (void *)JBROOT_PATH("/basebin/.fakelib"));
-		}
-		else {
-			r = unmount_unsandboxed("/usr/lib", MNT_FORCE);
-		}
-	}
-	return r;
+	(void)mounted;
+	return 0;
 }
 
 int jbctl_handle_internal(const char *command, int argc, char* argv[])
@@ -170,7 +108,6 @@ int jbctl_handle_internal(const char *command, int argc, char* argv[])
 		return -1;
 	}
 	else if (!strcmp(command, "startup")) {
-		protection_set_active(true);
 		char *panicMessage = NULL;
 		if (jbclient_watchdog_get_last_userspace_panic(&panicMessage) == 0) {
 			NSString *printMessage = [NSString stringWithFormat:@"Dopamine has protected you from a userspace panic by temporarily disabling tweak injection and triggering a userspace reboot instead. A log is available under Analytics in the Preferences app. You can reenable tweak injection in the Dopamine app.\n\nPanic message: \n%s", panicMessage];

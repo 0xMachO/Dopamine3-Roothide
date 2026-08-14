@@ -17,9 +17,8 @@
 #include <libjailbreak/jbclient_xpc.h>
 #include <libjailbreak/roothider/jailbreakd.h>
 
-// NOTE: 3.x systemhook's common.h defines HOOK_DYLIB_PATH as the compile-time
-// macro "/usr/lib/systemhook.dylib"; our runtime override variable is therefore
-// named gHookDylibPath to avoid the token collision (2.x had no such macro).
+// The loaded image path is retained for trust decisions inside this process.
+// Spawn-time injection itself uses the dynamic alias managed by common.c.
 const char* gHookDylibPath = NULL;
 
 bool dyld_patch_fallback_enabled = false;

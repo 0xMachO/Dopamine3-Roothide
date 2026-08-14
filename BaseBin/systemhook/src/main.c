@@ -376,13 +376,12 @@ __attribute__((constructor)) static void initializer(void)
 	// Initialize roothider with checkin
 	roothide_init_with_checkin(JB_RootPath);
 
-	// Unset DYLD_INSERT_LIBRARIES, but only if systemhook itself is the only thing contained in it
-	// Feeable attempt at making jailbreak detection harder
+	// Drop the injection variable when this process inherited only the dynamic
+	// RootHide alias. The alias remains available to launchd, not to this process.
 	const char *dyldInsertLibraries = getenv("DYLD_INSERT_LIBRARIES");
-	if (dyldInsertLibraries) {
-		if (!strcmp(dyldInsertLibraries, HOOK_DYLIB_PATH)) {
-			unsetenv("DYLD_INSERT_LIBRARIES");
-		}
+	const char *hookDylibPath = systemhook_injection_path();
+	if (dyldInsertLibraries && hookDylibPath && !strcmp(dyldInsertLibraries, hookDylibPath)) {
+		unsetenv("DYLD_INSERT_LIBRARIES");
 	}
 
 	// On iOS 26+, hooks have to be applied through hookd

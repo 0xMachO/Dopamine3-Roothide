@@ -51,8 +51,7 @@ DOJailbreaker *gJb;
 - (NSError *)gatherSystemInformation;
 - (NSError *)loadBasebinTrustcache;
 - (NSError *)injectLaunchdHook;
-- (NSError *)applyProtection;
-- (NSError *)createFakeLib;
+- (NSError *)preparePrivateDyld;
 @end
 
 void init_libjailbreak(void)
@@ -129,12 +128,6 @@ void activate_basebin(NSString *basebinPath)
 		exit(-1);
 	}
 
-	r = [[DOEnvironmentManager sharedManager] setFakelibMounted:YES];
-	if (r != 0) {
-		printf("Activating basebin failed: setFakelibMounted returned %d\n", r);
-		exit(-1);
-	}
-
 	printf("Activated %s basebin!\n", basebinPath.fileSystemRepresentation); fflush(stdout); usleep(1000);
 }
 
@@ -192,16 +185,10 @@ void prepare_bootstrap(void)
 	printf("OK\n"); fflush(stdout); usleep(1000);
 }
 
-void update_var_jb_symlink(void)
+void remove_legacy_var_jb_alias(void)
 {
-	printf("Updating /var/jb symlink... "); fflush(stdout); usleep(1000);
-	DOBootstrapper *bootstrapper = [[DOBootstrapper alloc] init];
-	NSError *error = [bootstrapper updateVarJbSymlink];
-	if (error) {
-		printf("\nUpdating /var/jb symlink failed: %s\n", error.description.UTF8String); fflush(stdout); usleep(1000);
-		exit(-1);
-	}
-	printf("OK\n");
+	// RootHide never exposes a /var/jb compatibility link during normal runtime.
+	[[NSFileManager defaultManager] removeItemAtPath:@"/var/jb" error:nil];
 }
 
 void load_basebin_trustcache(void)
@@ -226,16 +213,6 @@ void inject_launchd_hook(void)
 	printf("OK\n");
 }
 
-void apply_preboot_protection(void)
-{
-	printf("Applying protection... "); fflush(stdout); usleep(1000);
-	NSError *error = [gJb applyProtection];
-	if (error) {
-		printf("\nApplying protection failed: %s\n", error.description.UTF8String); fflush(stdout); usleep(1000);
-		exit(-1);
-	}
-	printf("OK\n");
-}
 
 int install_package(NSString *packagePath)
 {
@@ -248,7 +225,7 @@ void load_var_jb_daemons(void)
 	// I spent a lot of time figuring out why and it's something related to us being considered the wrong session / domain
 	// No clue how to fix that, but I also figured out that 'launchctl bootstrap system' works...
 	// Supposedly because this command allows us to manually specifiy a session / domain (which in this case is 'system')
-	exec_cmd_trusted("/var/jb/usr/bin/launchctl", "bootstrap", "system", "/var/jb/Library/LaunchDaemons", NULL);
+	exec_cmd_trusted(JBROOT_PATH("/usr/bin/launchctl"), "bootstrap", "system", JBROOT_PATH("/Library/LaunchDaemons"), NULL);
 }
 
 void install_builtin_packages(void)
@@ -280,9 +257,14 @@ void finalize_bootstrap_if_needed(bool *finalized)
 	char *shellBackup = getenv("SHELL") ? strdup(getenv("SHELL")) : NULL;
 
 	setenv("NO_PASSWORD_PROMPT", "1", 1);
-	setenv("PATH", "/sbin:/bin:/usr/sbin:/usr/bin:/var/jb/sbin:/var/jb/bin:/var/jb/usr/sbin:/var/jb/usr/bin", 1);
+	char *rootHidePath = NULL;
+	asprintf(&rootHidePath, "/sbin:/bin:/usr/sbin:/usr/bin:%s/sbin:%s/bin:%s/usr/sbin:%s/usr/bin", JBROOT_PATH(""), JBROOT_PATH(""), JBROOT_PATH(""), JBROOT_PATH(""));
+	if (rootHidePath) {
+		setenv("PATH", rootHidePath, 1);
+		free(rootHidePath);
+	}
 	setenv("TERM", "xterm-256color", 1);
-	setenv("SHELL", "/var/jb/bin/sh", 1);
+	setenv("SHELL", JBROOT_PATH("/bin/sh"), 1);
 
 	if ([[NSFileManager defaultManager] fileExistsAtPath:JBROOT_PATH(@"/prep_bootstrap.sh")]) {
 		printf("Running prep_bootstrap script...\n");
@@ -340,7 +322,7 @@ void print_existing_procs(void)
 	}
 }
 
-void activate_environment(bool applyProtection, bool prepareBootstrap)
+void activate_environment(bool prepareBootstrap)
 {
 	find_offsets();
 	init_libjailbreak();
@@ -355,27 +337,23 @@ void activate_environment(bool applyProtection, bool prepareBootstrap)
 		prepare_bootstrap();
 	}
 	else {
-		update_var_jb_symlink();
+		remove_legacy_var_jb_alias();
 	}
 
 	load_basebin_trustcache();
 
 	inject_launchd_hook();
 	
-	if (applyProtection) {
-		apply_preboot_protection();
-	}
 }
 
 void install_dopamine(void)
 {
-	activate_environment(false, true);
+	activate_environment(true);
 
 	install_basebin_gen();
 	activate_basebin(JBROOT_PATH(@"/basebin"));
 
-	// Now that fakelib is up, we want to make systemhook inject into any binary we spawn
-	setenv("DYLD_INSERT_LIBRARIES", "/usr/lib/systemhook.dylib", 1);
+	// launchdhook owns the per-jailbreak systemhook alias and injection policy.
 
 	finalize_bootstrap_if_needed(NULL);
 	load_var_jb_daemons();
@@ -404,11 +382,10 @@ void install_dopamine_from_tarball(const char *tarballPath, const char *bootstra
 
 void activate_dopamine(void)
 {
-	activate_environment(true, false);
+	activate_environment(false);
 	activate_basebin(JBROOT_PATH(@"/basebin"));
 	
-	// Now that fakelib is up, we want to make systemhook inject into any binary we spawn
-	setenv("DYLD_INSERT_LIBRARIES", "/usr/lib/systemhook.dylib", 1);
+	// launchdhook owns the per-jailbreak systemhook alias and injection policy.
 
 	finalize_bootstrap_if_needed(NULL);
 	load_var_jb_daemons();

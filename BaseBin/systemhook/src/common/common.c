@@ -17,6 +17,95 @@
 #include <libjailbreak/hookd.h>
 #include <libkern/OSCacheControl.h>
 
+static char gSystemhookInjectionPath[PATH_MAX] = {0};
+
+static bool is_dynamic_systemhook_path(const char *path)
+{
+	return path && strstr(path, "/systemhook.dylib.") != NULL;
+}
+
+bool systemhook_set_injection_path(const char *path)
+{
+	if (!is_dynamic_systemhook_path(path) || strlen(path) >= sizeof(gSystemhookInjectionPath)) {
+		return false;
+	}
+	strlcpy(gSystemhookInjectionPath, path, sizeof(gSystemhookInjectionPath));
+	return true;
+}
+
+const char *systemhook_injection_path(void)
+{
+	if (gSystemhookInjectionPath[0] != '\0') {
+		return gSystemhookInjectionPath;
+	}
+
+	const char *inserts = getenv("DYLD_INSERT_LIBRARIES");
+	if (!inserts) {
+		return NULL;
+	}
+
+	char *copy = strdup(inserts);
+	if (!copy) {
+		return NULL;
+	}
+
+	const char *result = NULL;
+	char *cursor = copy;
+	char *component = NULL;
+	while ((component = strsep(&cursor, ":")) != NULL) {
+		if (is_dynamic_systemhook_path(component) && systemhook_set_injection_path(component)) {
+			result = gSystemhookInjectionPath;
+			break;
+		}
+	}
+	free(copy);
+	return result;
+}
+
+void systemhook_strip_injection(char ***environment)
+{
+	if (!environment || !*environment) {
+		return;
+	}
+
+	const char *hookDylibPath = systemhook_injection_path();
+	const char *inserts = envbuf_getenv((const char **)*environment, "DYLD_INSERT_LIBRARIES");
+	if (!hookDylibPath || !inserts) {
+		return;
+	}
+	if (!strcmp(inserts, hookDylibPath)) {
+		envbuf_unsetenv(environment, "DYLD_INSERT_LIBRARIES");
+		return;
+	}
+
+	char *filtered = calloc(strlen(inserts) + 1, 1);
+	if (!filtered) {
+		return;
+	}
+	bool first = true;
+	char *copy = strdup(inserts);
+	char *cursor = copy;
+	char *component = NULL;
+	while (copy && (component = strsep(&cursor, ":")) != NULL) {
+		if (!strcmp(component, hookDylibPath)) {
+			continue;
+		}
+		if (!first) {
+			strlcat(filtered, ":", strlen(inserts) + 1);
+		}
+		strlcat(filtered, component, strlen(inserts) + 1);
+		first = false;
+	}
+	if (filtered[0] == '\0') {
+		envbuf_unsetenv(environment, "DYLD_INSERT_LIBRARIES");
+	}
+	else {
+		envbuf_setenv(environment, "DYLD_INSERT_LIBRARIES", filtered);
+	}
+	free(copy);
+	free(filtered);
+}
+
 bool string_has_prefix(const char *str, const char* prefix)
 {
 	if (!str || !prefix) {
@@ -147,7 +236,7 @@ kSpawnConfig spawn_config_for_executable(const char* path, char *const argv[rest
 }
 
 // 1. Ensure the binary about to be spawned and all of it's dependencies are trust cached
-// 2. Insert "DYLD_INSERT_LIBRARIES=/usr/lib/systemhook.dylib" into all binaries spawned
+// 2. Insert the per-jailbreak RootHide systemhook alias into approved spawned binaries
 // 3. Increase Jetsam limit to more sane value (Multipler defined as JETSAM_MULTIPLIER)
 // 4. Fix spawning as root via persona entitlement on iOS 17.6+
 
@@ -177,11 +266,12 @@ static int spawn_exec_hook_common(bool isExec,
 		trust_binary(path);
 	}
 
+	const char *hookDylibPath = systemhook_injection_path();
 	const char *existingLibraryInserts = envbuf_getenv((const char **)envp, "DYLD_INSERT_LIBRARIES");
 	__block bool systemHookAlreadyInserted = false;
-	if (existingLibraryInserts) {
+	if (hookDylibPath && existingLibraryInserts) {
 		string_enumerate_components(existingLibraryInserts, ":", ^(const char *existingLibraryInsert, bool *stop) {
-			if (!strcmp(existingLibraryInsert, HOOK_DYLIB_PATH)) {
+			if (!strcmp(existingLibraryInsert, hookDylibPath)) {
 				systemHookAlreadyInserted = true;
 			}
 		});
@@ -227,8 +317,8 @@ static int spawn_exec_hook_common(bool isExec,
 			}
 		}
 
-		if (access(HOOK_DYLIB_PATH, F_OK) != 0) {
-			// If the hook dylib doesn't exist, don't try to inject it (would crash the process)
+		if (!hookDylibPath || access(hookDylibPath, F_OK) != 0) {
+			// Do not inject unless launchdhook published a verified dynamic alias.
 			shouldInsertJBEnv = false;
 			break;
 		}
@@ -307,9 +397,9 @@ static int spawn_exec_hook_common(bool isExec,
 		char **envc = envbuf_mutcopy((const char **)envp);
 
 		if (shouldInsertJBEnv) {
-			if (!systemHookAlreadyInserted) {
-				char newLibraryInsert[strlen(HOOK_DYLIB_PATH) + (existingLibraryInserts ? (strlen(existingLibraryInserts) + 1) : 0) + 1];
-				strcpy(newLibraryInsert, HOOK_DYLIB_PATH);
+			if (!systemHookAlreadyInserted && hookDylibPath) {
+				char newLibraryInsert[strlen(hookDylibPath) + (existingLibraryInserts ? (strlen(existingLibraryInserts) + 1) : 0) + 1];
+				strcpy(newLibraryInsert, hookDylibPath);
 				if (existingLibraryInserts) {
 					strcat(newLibraryInsert, ":");
 					strcat(newLibraryInsert, existingLibraryInserts);
@@ -317,36 +407,11 @@ static int spawn_exec_hook_common(bool isExec,
 				envbuf_setenv(&envc, "DYLD_INSERT_LIBRARIES", newLibraryInsert);
 			}
 		}
-		else {
-			if (systemHookAlreadyInserted && existingLibraryInserts) {
-				if (!strcmp(existingLibraryInserts, HOOK_DYLIB_PATH)) {
-					envbuf_unsetenv(&envc, "DYLD_INSERT_LIBRARIES");
-				}
-				else {
-					char *newLibraryInsert = malloc(strlen(existingLibraryInserts)+1);
-					newLibraryInsert[0] = '\0';
-
-					__block bool first = true;
-					string_enumerate_components(existingLibraryInserts, ":", ^(const char *existingLibraryInsert, bool *stop) {
-						if (strcmp(existingLibraryInsert, HOOK_DYLIB_PATH) != 0) {
-							if (first) {
-								strcpy(newLibraryInsert, existingLibraryInsert);
-								first = false;
-							}
-							else {
-								strcat(newLibraryInsert, ":");
-								strcat(newLibraryInsert, existingLibraryInsert);
-							}
-						}
-					});
-					envbuf_setenv(&envc, "DYLD_INSERT_LIBRARIES", newLibraryInsert);
-
-					free(newLibraryInsert);
-				}
+			else {
+				systemhook_strip_injection(&envc);
+				envbuf_unsetenv(&envc, "_SafeMode");
+				envbuf_unsetenv(&envc, "_MSSafeMode");
 			}
-			envbuf_unsetenv(&envc, "_SafeMode");
-			envbuf_unsetenv(&envc, "_MSSafeMode");
-		}
 
 		r = orig(&childPid, envc);
 

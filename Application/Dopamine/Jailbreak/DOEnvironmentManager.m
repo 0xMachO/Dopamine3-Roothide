@@ -22,6 +22,7 @@
 #import <libjailbreak/display.h>
 #import <libjailbreak/machine_info.h>
 #import <libjailbreak/carboncopy.h>
+#import <libjailbreak/roothider.h>
 
 #import <IOKit/IOKitLib.h>
 #import "DOUIManager.h"
@@ -322,8 +323,8 @@ extern char **environ;
         // Palera1n
         if (csFlags & CS_PLATFORM_BINARY) return YES;
         
-        // Older Dopamine build
-        if (!access("/usr/lib/systemhook.dylib", F_OK)) return YES;
+        // Ask RootHide's central policy instead of probing a legacy global path.
+        if (otherJailbreakActived(true)) return YES;
     }
     return NO;
 }
@@ -620,73 +621,26 @@ extern char **environ;
     }
 }
 
-- (BOOL)isFakelibMounted
-{
-    struct statfs fsb;
-    if (statfs("/usr/lib", &fsb) != 0) return NO;
-    return strcmp(fsb.f_mntonname, "/usr/lib") == 0;
-}
-
-- (int)setFakelibMounted:(BOOL)mounted
-{
-    int r = 0;
-    if (mounted != [self isFakelibMounted]) {
-        NSString *arg = mounted ? @"mount" : @"unmount";
-        r = [self spawnJbctlAsRootWithArgs:@[@"internal", @"fakelib", arg]];
-    }
-    return r;
-}
-
-- (int)setPrivatePrebootProtected:(BOOL)protected
-{
-    NSString *arg = protected ? @"activate" : @"deactivate";
-    return [self spawnJbctlAsRootWithArgs:@[@"internal", @"protection", arg]];
-}
-
 - (BOOL)isJailbreakHidden
 {
-    return ![[NSFileManager defaultManager] fileExistsAtPath:@"/var/jb"];
+    // RootHide runtime is always hidden: the integration never recreates the
+    // legacy /var/jb alias or global FakeLib/preboot mounts.
+    return YES;
 }
 
 - (void)setJailbreakHidden:(BOOL)hidden
 {
-    if (hidden && ![self isJailbroken] && geteuid() != 0) {
-        [self runTrollStoreAction:@"hide-jailbreak"];
+    if (!hidden) {
+        NSLog(@"RootHide runtime does not support exposing a legacy jailbreak path");
         return;
     }
-    
-    void (^actionBlock)(void) = ^{
-        BOOL alreadyHidden = [self isJailbreakHidden];
-        if (hidden != alreadyHidden) {
-            if (hidden) {
-                if ([self isJailbroken]) {
-                    [self unregisterJailbreakApps];
-                    [self setPrivatePrebootProtected:NO];
-                    [self setFakelibMounted:NO];
-                    // jbclient_platform_set_systemwide_domain_enabled is disabled on
-                    // 3.x (client impl and jbserver handler are stubbed/absent).
-                }
-                [[NSFileManager defaultManager] removeItemAtPath:@"/var/jb" error:nil];
-            }
-            else {
-                [[NSFileManager defaultManager] createSymbolicLinkAtPath:@"/var/jb" withDestinationPath:JBROOT_PATH(@"/") error:nil];
-                if ([self isJailbroken]) {
-                    // jbclient_platform_set_systemwide_domain_enabled is disabled on 3.x.
-                    [self setFakelibMounted:YES];
-                    [self setPrivatePrebootProtected:YES];
-                    [self refreshJailbreakApps];
-                }
-            }
-        }
-    };
-    
+
     if ([self isJailbroken]) {
         [self runAsRoot:^{
-            [self runUnsandboxed:actionBlock];
+            [self runUnsandboxed:^{
+                [self unregisterJailbreakApps];
+            }];
         }];
-    }
-    else {
-        actionBlock();
     }
 }
 

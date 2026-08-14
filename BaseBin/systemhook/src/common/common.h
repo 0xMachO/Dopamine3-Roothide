@@ -4,7 +4,11 @@
 #include "private.h"
 #include "inline.h"
 
-#define HOOK_DYLIB_PATH "/usr/lib/systemhook.dylib"
+// The injection path is published by launchdhook after the RootHide alias has
+// been prepared. Never fall back to a global fixed path.
+const char *systemhook_injection_path(void);
+bool systemhook_set_injection_path(const char *path);
+void systemhook_strip_injection(char ***environment);
 
 typedef enum 
 {

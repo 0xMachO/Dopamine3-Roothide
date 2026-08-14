@@ -60,9 +60,8 @@ typedef NS_ENUM(NSInteger, JBErrorCode) {
     JBErrorCodeFailedPlatformize             = -9,
     JBErrorCodeFailedBasebinTrustcache       = -10,
     JBErrorCodeFailedLaunchdInjection        = -11,
-    JBErrorCodeFailedInitProtection          = -12,
-    JBErrorCodeFailedInitFakeLib             = -13,
-    JBErrorCodeFailedDuplicateApps           = -14,
+    JBErrorCodeFailedInitFakeLib             = -12,
+    JBErrorCodeFailedDuplicateApps           = -13,
 };
 
 @implementation DOJailbreaker
@@ -435,16 +434,7 @@ void *boomerang_server(struct boomerang_info *info)
     return nil;
 }
 
-- (NSError *)applyProtection
-{
-    int r = [[DOEnvironmentManager sharedManager] setPrivatePrebootProtected:YES];
-    if (r != 0) {
-        return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedInitProtection userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Failed initializing protection with error: %d", r]}];
-    }
-    return nil;
-}
-
-- (NSError *)createFakeLib
+- (NSError *)preparePrivateDyld
 {
     int r = basebin_generate(false);
     if (r != 0) {
@@ -456,21 +446,13 @@ void *boomerang_server(struct boomerang_info *info)
         return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedInitFakeLib userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Failed to upload dyld trustcache: %d", r]}];
     }
 
-    // launchdhook injected and dyld patched, now we can enable dyld patching for new processes
-    exec_set_patch(true);
-
     // don't use dyld-in-cache due to dyldhooks
     setenv("DYLD_IN_CACHE", "0", 1);
     // don't load tweak during jailbreaking
     setenv("DISABLE_TWEAKS", "1", 1);
     
-    r = [[DOEnvironmentManager sharedManager] setFakelibMounted:YES];
-    if (r != 0) {
-        return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedInitFakeLib userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Mounting fakelib failed with error: %d", r]}];
-    }
-    
-    // Now that fakelib is up, we want to make systemhook inject into any binary we spawn
-    setenv("DYLD_INSERT_LIBRARIES", JBROOT_PATH("/basebin/systemhook.dylib"), 1);
+    // On iOS 18 the dyld hook redirects private FakeLib accesses from the
+    // hidden root. Do not mount it over /usr/lib or publish a global alias.
     return nil;
 }
 
@@ -660,6 +642,15 @@ void *boomerang_server(struct boomerang_info *info)
         return;
     }
 
+    // Prepare the private dyld before launchd publishes the dynamic
+    // systemhook alias. The source remains inside the hidden root.
+    [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Preparing RootHide Runtime") debug:NO];
+    *errOut = [self preparePrivateDyld];
+    if (*errOut) {
+        [self cleanUpPostExploitation];
+        return;
+    }
+
     [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Initializing Environment") debug:NO];
     *errOut = [self injectLaunchdHook];
     if (*errOut) {
@@ -669,23 +660,6 @@ void *boomerang_server(struct boomerang_info *info)
     
     // After the launchd hook is initialized, we need to make the app believe the device is jailbroken
     [[DOEnvironmentManager sharedManager] setJailbroken:YES withVersion:[NSString stringWithContentsOfFile:JBROOT_PATH(@"/basebin/.version") encoding:NSUTF8StringEncoding error:nil]];
-    
-    // Now that we can, protect important system files by bind mounting on top of them
-    // This will be always be done during the userspace reboot
-    // We also do it now though in case there is a failure between the now step and the userspace reboot
-    [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Initializing Protection") debug:NO];
-    *errOut = [self applyProtection];
-    if (*errOut) {
-        [self cleanUpPostExploitation];
-        return;
-    }
-    
-    [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Applying Bind Mount") debug:NO];
-    *errOut = [self createFakeLib];
-    if (*errOut) {
-        [self cleanUpPostExploitation];
-        return;
-    }
     
     // Unsandbox iconservicesagent so that app icons can work
     exec_cmd_trusted(JBROOT_PATH("/usr/bin/killall"), "-9", "iconservicesagent", NULL);

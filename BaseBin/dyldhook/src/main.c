@@ -200,7 +200,8 @@ void dyldhook_init(uintptr_t kernelParams)
 		__asm("b .");
 	}
 
-	// If DYLD_INSERT_LIBRARIES is not set or does not contain systemhook, bail out
+			// Check in only for the per-jailbreak systemhook alias published by RootHide.
+
 	const char *insertLibrariesVar = _simple_getenv(envp, "DYLD_INSERT_LIBRARIES");
 	if (!insertLibrariesVar) {
 		if (gDyldHookLog) {
@@ -208,7 +209,8 @@ void dyldhook_init(uintptr_t kernelParams)
 		}
 		return;		
 	}
-	if (!strstr(insertLibrariesVar, "/systemhook.dylib")) {
+			if (!strstr(insertLibrariesVar, "/systemhook.dylib.")) {
+
 		if (gDyldHookLog) {
 			_simple_dprintf(2, "Not checking in, no systemhook found in DYLD_INSERT_LIBRARIES (%s)\n", insertLibrariesVar);
 		}
