@@ -62,6 +62,7 @@ typedef NS_ENUM(NSInteger, JBErrorCode) {
     JBErrorCodeFailedLaunchdInjection        = -11,
     JBErrorCodeFailedInitFakeLib             = -12,
     JBErrorCodeFailedDuplicateApps           = -13,
+    JBErrorCodeFailedBootstrapTrustcache     = -14,
 };
 
 @implementation DOJailbreaker
@@ -368,6 +369,30 @@ typedef NS_ENUM(NSInteger, JBErrorCode) {
     return nil;
 }
 
+- (NSError *)loadBootstrapTrustcacheIfNeeded
+{
+    const char *completionMarkerPath = JBROOT_PATH("/.installed_dopamine");
+    if (completionMarkerPath && access(completionMarkerPath, F_OK) == 0) {
+        return nil;
+    }
+
+    // First Bootstrap runs before the dynamic systemhook alias is published.
+    // Trust the hidden root while the app still owns the pre-injection primitive,
+    // so shell helpers never need recursive trust or cdhash mutation in that window.
+    const char *bootstrapRootPath = JBROOT_PATH("/");
+    if (!bootstrapRootPath || access(bootstrapRootPath, R_OK | X_OK) != 0) {
+        return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedBootstrapTrustcache
+            userInfo:@{NSLocalizedDescriptionKey : @"Bootstrap root is unavailable for trustcache preparation."}];
+    }
+
+    int ret = jb_trustcache_add_directory(bootstrapRootPath, true);
+    if (ret != 0) {
+        return [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedBootstrapTrustcache
+            userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Failed to load Bootstrap trustcache: %d", ret]}];
+    }
+    return nil;
+}
+
 struct boomerang_info {
     mach_port_t serverPort;
     dispatch_semaphore_t boomerangDone;
@@ -642,6 +667,13 @@ void *boomerang_server(struct boomerang_info *info)
         return;
     }
 
+    [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Preparing Bootstrap TrustCache") debug:NO];
+    *errOut = [self loadBootstrapTrustcacheIfNeeded];
+    if (*errOut) {
+        [self cleanUpPostExploitation];
+        return;
+    }
+
     // Prepare the private dyld before launchd publishes the dynamic
     // systemhook alias. The source remains inside the hidden root.
     [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Preparing RootHide Runtime") debug:NO];
@@ -658,10 +690,10 @@ void *boomerang_server(struct boomerang_info *info)
         return;
     }
     
-    // The application has its own libjailbreak state. Re-enable recursive
-    // trust only after launchdhook/jbserver injection succeeds so Bootstrap
-    // binaries and their library closure are admitted before dyld loads them.
-    exec_set_patch(true);
+    // Keep app-local recursive trust disabled throughout first Bootstrap.
+    // The complete hidden root was batch-trusted before launchd injection;
+    // enabling the recursive path here would mutate trustcache while launchd
+    // is using its first-pass physrw_pte primitive.
 
     // Unsandbox iconservicesagent so that app icons can work
     exec_cmd_trusted(JBROOT_PATH("/usr/bin/killall"), "-9", "iconservicesagent", NULL);
@@ -671,6 +703,10 @@ void *boomerang_server(struct boomerang_info *info)
         [self cleanUpPostExploitation];
         return;
     }
+
+    // The completion marker is now present. Runtime recursive trust is safe
+    // again for later app-side spawns, after the first-pass Bootstrap window.
+    exec_set_patch(true);
 
     // A hidden root and basebin version can exist before finalization. Publish
     // the in-process success state only after the completion marker exists.

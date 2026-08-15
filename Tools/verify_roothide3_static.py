@@ -34,16 +34,24 @@ def main() -> int:
     watchdog_makefile = read("BaseBin/watchdoghook/Makefile")
     environment_manager = read("Application/Dopamine/Jailbreak/DOEnvironmentManager.m")
     jbserver_domain = read("BaseBin/launchdhook/src/jbserver/jbdomain_dopamine.c")
-
+    trustcache_fs = read("BaseBin/libjailbreak/src/trustcache_fs.c")
     require("mount_unsandboxed(\"bindfs\"" not in jbctl,
             "jbctl still contains a bindfs mount operation", failures)
     require("setFakelibMounted" not in jailbreaker and "setPrivatePrebootProtected" not in jailbreaker,
             "Dopamine jailbreak flow still activates a global mount lifecycle", failures)
     injection_marker = jailbreaker.index("Initializing Environment")
     finalization_call = jailbreaker.index("[self finalizeBootstrapIfNeeded]", injection_marker)
-    require("exec_set_patch(true);" in jailbreaker
-            and jailbreaker.index("exec_set_patch(true);", injection_marker) < finalization_call,
-            "Dopamine app does not enable recursive Bootstrap trust after launchd injection", failures)
+    bootstrap_trust_marker = jailbreaker.index("Preparing Bootstrap TrustCache")
+    bootstrap_trust_call = jailbreaker.index("[self loadBootstrapTrustcacheIfNeeded]", bootstrap_trust_marker)
+    runtime_patch_call = jailbreaker.index("exec_set_patch(true);", finalization_call)
+    require("jb_trustcache_add_directory(bootstrapRootPath, true)" in jailbreaker
+            and "fat_collect_untrusted_cdhashes" in trustcache_fs,
+            "Bootstrap trustcache does not use the read-only directory collector", failures)
+    require(bootstrap_trust_marker < injection_marker and bootstrap_trust_call < injection_marker,
+            "Bootstrap trustcache is not prepared before launchd injection", failures)
+    require(runtime_patch_call > finalization_call
+            and "exec_set_patch(true);" not in jailbreaker[injection_marker:finalization_call],
+            "Dopamine enables recursive trust during the first Bootstrap window", failures)
     require(jailbreaker.index("setJailbroken:YES", injection_marker) > finalization_call,
             "Dopamine publishes a jailbroken state before Bootstrap finalization", failures)
     require("/usr/lib/systemhook.dylib\"" not in common,
