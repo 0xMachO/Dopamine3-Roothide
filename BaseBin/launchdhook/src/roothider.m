@@ -11,7 +11,6 @@
 #include "../systemhook/src/common/envbuf.h"
 #include "hookd_provider.h"
 #include <litehook.h>
-#include <substrate.h>
 
 #define POSIX_SPAWN_PROC_TYPE_DRIVER 0x700
 extern int posix_spawnattr_getprocesstype_np(const posix_spawnattr_t *__restrict, int *__restrict) __API_AVAILABLE(macos(10.8), ios(6.0));
@@ -179,7 +178,8 @@ void roothide_launchd_postinit(bool firstLoad)
 	{
 		litehook_hook_function(__sysctl, __sysctl_hook);
 		litehook_hook_function(__sysctlbyname, __sysctlbyname_hook);
-		MSHookFunction((void *)&bind, (void *)new_bind, (void **)&orig_bind); //fix network issues on iOS16+
+		orig_bind = bind;
+		litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, (void *)bind, (void *)new_bind, NULL); //fix network issues on iOS16+
 	}
 #ifdef __arm64e__
 	else 
@@ -201,14 +201,13 @@ void roothide_launchd_postinit(bool firstLoad)
 
 	loadAppStoredIdentifiers();
 
-	// Inline-hook launchd's XPC reply functions via substrate (MSHookFunction),
-	// exactly like roothide 2.x. The previous port replaced these with
-	// litehook_rebind_symbol, which only rewrites __la_symbol_ptr/__nl_symbol_ptr
-	// entries and silently skips arm64e __auth_got — so the roothide
-	// process/job/coalition hiding never fired on iOS 18 (banks saw every
-	// jailbreak process as if it were a vanilla jailbreak).
-	MSHookFunction((void *)&xpc_dictionary_create_reply, (void *)new_xpc_dictionary_create_reply, (void **)&orig_xpc_dictionary_create_reply);
-	MSHookFunction((void *)&xpc_pipe_routine_reply, (void *)new_xpc_pipe_routine_reply, (void **)&orig_xpc_pipe_routine_reply);
+	// The SDK's xpc_dictionary_create_reply carries XPC_RETURNS_RETAINED +
+	// nullability attributes; cast to our plain pointer type (clang 16+ treats
+	// the mismatch as an error).
+	orig_xpc_dictionary_create_reply = (typeof(orig_xpc_dictionary_create_reply))xpc_dictionary_create_reply;
+	litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, (void *)xpc_dictionary_create_reply, (void *)new_xpc_dictionary_create_reply, NULL);
+	orig_xpc_pipe_routine_reply = xpc_pipe_routine_reply;
+	litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, (void *)xpc_pipe_routine_reply, (void *)new_xpc_pipe_routine_reply, NULL);
 
 	// load the daemon after applying hooks.
 	// 3.x-native: initJailbreakd spawns /basebin/hookd (there is no jailbreakd on 3.x;

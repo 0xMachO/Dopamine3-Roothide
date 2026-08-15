@@ -76,5 +76,6 @@ xpc_object_t xpc_dictionary_get_value_hook(xpc_object_t xdict, const char *key)
 
 void initDaemonHooks(void)
 {
-	MSHookFunction((void *)&xpc_dictionary_get_value, (void *)xpc_dictionary_get_value_hook, (void **)&xpc_dictionary_get_value_orig);
+	xpc_dictionary_get_value_orig = xpc_dictionary_get_value;
+	litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, xpc_dictionary_get_value, (void *)xpc_dictionary_get_value_hook, NULL);
 }
