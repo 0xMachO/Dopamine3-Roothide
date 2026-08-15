@@ -6,6 +6,7 @@
 #include <libjailbreak/libjailbreak.h>
 #include <libjailbreak/roothider.h>
 #include <libproc.h>
+#include <unistd.h>
 
 // 2.x had these in its own jbdomain_roothide.c; in the merged 3.x domain layout
 // they live here (declared in libjailbreak/src/roothider.h).
@@ -82,8 +83,14 @@ bool dopamine_domain_allowed(audit_token_t clientToken)
 
 bool dopamine_is_jailbroken(char **outVersion)
 {
+    // A basebin version is created during bootstrap extraction. It is not a
+    // success indicator; only finalization writes the installed marker.
+    if (access(JBROOT_PATH("/.installed_dopamine"), F_OK) != 0) {
+        *outVersion = NULL;
+        return false;
+    }
     *outVersion = read_file_to_string(JBROOT_PATH("/basebin/.version"));
-    return true;
+    return *outVersion != NULL;
 }
 
 // The merged domain is open to any non-blacklisted process for roothide actions,
@@ -162,7 +169,8 @@ int dopamine_drop_root(audit_token_t *processToken)
 // Roothide action handlers
 static int roothide_jailbroken_check(audit_token_t *callerToken, bool* jailbroken)
 {
-    *jailbroken = true;
+    // Do not expose a partially extracted root as active after Bootstrap fails.
+    *jailbroken = (access(JBROOT_PATH("/.installed_dopamine"), F_OK) == 0);
     return 0;
 }
 

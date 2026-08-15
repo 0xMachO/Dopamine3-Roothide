@@ -33,11 +33,19 @@ def main() -> int:
     env_manager = read("Application/Dopamine/Jailbreak/DOEnvironmentManager.m")
     watchdog_makefile = read("BaseBin/watchdoghook/Makefile")
     environment_manager = read("Application/Dopamine/Jailbreak/DOEnvironmentManager.m")
+    jbserver_domain = read("BaseBin/launchdhook/src/jbserver/jbdomain_dopamine.c")
 
     require("mount_unsandboxed(\"bindfs\"" not in jbctl,
             "jbctl still contains a bindfs mount operation", failures)
     require("setFakelibMounted" not in jailbreaker and "setPrivatePrebootProtected" not in jailbreaker,
             "Dopamine jailbreak flow still activates a global mount lifecycle", failures)
+    injection_marker = jailbreaker.index("Initializing Environment")
+    finalization_call = jailbreaker.index("[self finalizeBootstrapIfNeeded]", injection_marker)
+    require("exec_set_patch(true);" in jailbreaker
+            and jailbreaker.index("exec_set_patch(true);", injection_marker) < finalization_call,
+            "Dopamine app does not enable recursive Bootstrap trust after launchd injection", failures)
+    require(jailbreaker.index("setJailbroken:YES", injection_marker) > finalization_call,
+            "Dopamine publishes a jailbroken state before Bootstrap finalization", failures)
     require("/usr/lib/systemhook.dylib\"" not in common,
             "shared spawn policy still contains the fixed systemhook path", failures)
     require("systemhook.dylib.%016llX" in launchd and "unsandbox(\"/usr/lib\"" in launchd,
@@ -50,6 +58,8 @@ def main() -> int:
             "launchd blacklist path does not strip inherited injection", failures)
     require("systemhook_strip_injection(&envc)" in common,
             "shared spawn policy does not strip injection for isolated processes", failures)
+    require("access(JBROOT_PATH(\"/.installed_dopamine\"), F_OK)" in jbserver_domain,
+            "jbserver does not require the Bootstrap completion marker", failures)
     require("/systemhook.dylib." in dyldhook,
             "dyldhook does not require the dynamic RootHide alias", failures)
     require("/usr/lib/systemhook.dylib\"" not in env_manager,

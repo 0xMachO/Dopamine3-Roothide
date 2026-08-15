@@ -658,9 +658,11 @@ void *boomerang_server(struct boomerang_info *info)
         return;
     }
     
-    // After the launchd hook is initialized, we need to make the app believe the device is jailbroken
-    [[DOEnvironmentManager sharedManager] setJailbroken:YES withVersion:[NSString stringWithContentsOfFile:JBROOT_PATH(@"/basebin/.version") encoding:NSUTF8StringEncoding error:nil]];
-    
+    // The application has its own libjailbreak state. Re-enable recursive
+    // trust only after launchdhook/jbserver injection succeeds so Bootstrap
+    // binaries and their library closure are admitted before dyld loads them.
+    exec_set_patch(true);
+
     // Unsandbox iconservicesagent so that app icons can work
     exec_cmd_trusted(JBROOT_PATH("/usr/bin/killall"), "-9", "iconservicesagent", NULL);
     
@@ -669,7 +671,11 @@ void *boomerang_server(struct boomerang_info *info)
         [self cleanUpPostExploitation];
         return;
     }
-    
+
+    // A hidden root and basebin version can exist before finalization. Publish
+    // the in-process success state only after the completion marker exists.
+    [[DOEnvironmentManager sharedManager] setJailbroken:YES withVersion:[NSString stringWithContentsOfFile:JBROOT_PATH(@"/basebin/.version") encoding:NSUTF8StringEncoding error:nil]];
+
     [[DOEnvironmentManager sharedManager] setIDownloadEnabled:idownloadEnabled needsUnsandbox:NO];
     
     [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Checking For Duplicate Apps") debug:NO];
