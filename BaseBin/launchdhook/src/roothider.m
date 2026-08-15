@@ -138,11 +138,19 @@ void roothide_launchd_postinit(bool firstLoad)
 
 	// RootHide's first injected launchd pass must not mutate the systemhook
 	// source or publish a namecache alias. launchd is initproc at this point;
-	// alias staging is deferred until the post-userspace-reboot pass.
+	// alias staging is deferred until the post-userspace-reboot pass. Keep the
+	// spawn trust path enabled, however: Bootstrap children need recursive trust
+	// before they load libiosexec and other JBROOT runtime libraries.
 	if(firstLoad)
 	{
-		exec_set_patch(false);
-		if (__builtin_available(iOS 16.0, *))
+		exec_set_patch(true);
+		if (__builtin_available(iOS 18.0, *)) {
+			// The sysctl OID swap used by older RootHide builds makes Developer Mode
+			// appear disabled on iOS 18. Leave the real developer-mode state intact
+			// until the bootstrap and process policy are stable.
+			JBLogDebug("RootHide: skipping developer-mode sysctl mutation on iOS 18+");
+		}
+		else if (__builtin_available(iOS 16.0, *))
 		{
 			hideDeveloperMode();
 		}
