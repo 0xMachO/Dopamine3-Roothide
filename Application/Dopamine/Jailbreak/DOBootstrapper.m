@@ -477,8 +477,39 @@ NSString *const bootstrapErrorDomain = @"BootstrapErrorDomain";
     
     if ([[NSFileManager defaultManager] fileExistsAtPath:basebinPath]) {
         if (![[NSFileManager defaultManager] removeItemAtPath:basebinPath error:&error]) {
-            completion([NSError errorWithDomain:bootstrapErrorDomain code:BootstrapErrorCodeFailedExtracting userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Failed deleting existing basebin file with error: %@", error.localizedDescription]}]);
-            return;
+            BOOL recovered = NO;
+
+            NSString *corruptedFilePath = JBROOT_PATH(@"/basebin/gen/dyld.old");
+            if ([[NSFileManager defaultManager] fileExistsAtPath:corruptedFilePath]) {
+                if (![[NSFileManager defaultManager] removeItemAtPath:corruptedFilePath error:nil]) {
+                    // A historical jbupdate OOB write may leave this inode undeletable.
+                    // Moving it within preboot unblocks basebin replacement.
+                    NSString *activePrebootPath = [[DOEnvironmentManager sharedManager] activePrebootPath];
+
+                    NSString *characterSet = @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+                    NSUInteger stringLen = 6;
+                    NSMutableString *randomString = [NSMutableString stringWithCapacity:stringLen];
+                    for (NSUInteger i = 0; i < stringLen; i++) {
+                        NSUInteger randomIndex = arc4random_uniform((uint32_t)[characterSet length]);
+                        unichar randomCharacter = [characterSet characterAtIndex:randomIndex];
+                        [randomString appendFormat:@"%C", randomCharacter];
+                    }
+
+                    NSString *orphanedName = [NSString stringWithFormat:@"orphaned-%@", randomString];
+                    NSString *orphanedPath = [activePrebootPath stringByAppendingPathComponent:orphanedName];
+                    [[NSFileManager defaultManager] moveItemAtPath:corruptedFilePath toPath:orphanedPath error:nil];
+
+                    if ([[NSFileManager defaultManager] removeItemAtPath:basebinPath error:&error]) {
+                        recovered = YES;
+                        error = nil;
+                    }
+                }
+            }
+
+            if (!recovered) {
+                completion([NSError errorWithDomain:bootstrapErrorDomain code:BootstrapErrorCodeFailedExtracting userInfo:@{NSLocalizedDescriptionKey : [NSString stringWithFormat:@"Failed deleting existing basebin file with error: %@", error.localizedDescription]}]);
+                return;
+            }
         }
     }
     error = [self extractTar:[[NSBundle mainBundle].bundlePath stringByAppendingPathComponent:@"basebin.tar"] toPath:JBROOT_PATH(@"/")];
