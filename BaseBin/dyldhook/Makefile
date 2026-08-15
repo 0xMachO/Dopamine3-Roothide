@@ -4,7 +4,9 @@ CFLAGS = -I../.include -isysroot $(shell xcrun --sdk iphoneos --show-sdk-path) -
 LDFLAGS = -shared -Xlinker -add_split_seg_info
 # spinlock_fix.c is iOS 15 arm64e only, it is added via FILES_IOS15_ARM64E below
 # fakelib_redirect.c stays in the generic build (its hook is guarded with IOS < 18 internally)
-FILES = $(filter-out src/spinlock_fix.c,$(wildcard src/*.c)) $(wildcard src/*.S ../libjailbreak/src/jbclient_mach.c)
+# Test isolation: exclude RootHide's generic dyld interposition sources so the
+# iOS 18 variant follows Dopamine 3.0.7's dyld path.
+FILES = $(filter-out src/spinlock_fix.c src/roothider.c,$(wildcard src/*.c)) $(filter-out src/roothider.S,$(wildcard src/*.S)) ../libjailbreak/src/jbclient_mach.c
 FILES_IOS15 = $(wildcard src/generated/ios15/*.c)
 FILES_IOS16-17 = $(wildcard src/generated/ios16-17/*.c)
 FILES_IOS18+ = $(wildcard src/generated/ios18+/*.c)
