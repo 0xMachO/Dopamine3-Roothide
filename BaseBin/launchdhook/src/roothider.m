@@ -136,16 +136,12 @@ void roothide_launchd_postinit(bool firstLoad)
 
 	launchdhookFirstLoad = firstLoad;
 
-	// Do not enable process patching until the per-jailbreak systemhook alias
-	// exists. This deliberately fails closed instead of restoring FakeLib.
-	bool systemhookReady = prepare_dynamic_systemhook_alias();
-	exec_set_patch(systemhookReady);
-	if (!systemhookReady) {
-		JBLogError("RootHide: systemhook alias unavailable; injection remains disabled");
-	}
-
+	// RootHide's first injected launchd pass must not mutate the systemhook
+	// source or publish a namecache alias. launchd is initproc at this point;
+	// alias staging is deferred until the post-userspace-reboot pass.
 	if(firstLoad)
 	{
+		exec_set_patch(false);
 		if (__builtin_available(iOS 16.0, *))
 		{
 			hideDeveloperMode();
@@ -160,6 +156,15 @@ void roothide_launchd_postinit(bool firstLoad)
 				}
 			}
 #endif
+	}
+	else {
+		// Only after userspace reboot is it safe to stage and publish the
+		// per-jailbreak alias. Keep injection disabled on any failure.
+		bool systemhookReady = prepare_dynamic_systemhook_alias();
+		exec_set_patch(systemhookReady);
+		if (!systemhookReady) {
+			JBLogError("RootHide: systemhook alias unavailable; injection remains disabled");
+		}
 	}
 
 	if (__builtin_available(iOS 16.0, *))
