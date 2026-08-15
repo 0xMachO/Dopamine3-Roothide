@@ -9,8 +9,7 @@
 
 #import <Foundation/Foundation.h>
 
-//void abort_with_reason(uint32_t reason_namespace, uint64_t reason_code, const char *reason_string, uint64_t reason_flags);
-#define abort_with_reason(reason_namespace,reason_code,reason_string,reason_flags)  launchd_panic("%s",reason_string)
+void abort_with_reason(uint32_t reason_namespace, uint64_t reason_code, const char *reason_string, uint64_t reason_flags);
 
 int jbupdate_basebin(const char *basebinTarPath)
 {

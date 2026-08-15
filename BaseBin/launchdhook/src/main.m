@@ -32,8 +32,7 @@
 
 bool gInEarlyBoot = true;
 
-//void abort_with_reason(uint32_t reason_namespace, uint64_t reason_code, const char *reason_string, uint64_t reason_flags);
-#define abort_with_reason(reason_namespace,reason_code,reason_string,reason_flags)  launchd_panic("%s",reason_string)
+void abort_with_reason(uint32_t reason_namespace, uint64_t reason_code, const char *reason_string, uint64_t reason_flags);
 void roothide_launchd_preinit();
 void roothide_launchd_postinit(bool firstLoad);
 
@@ -104,9 +103,8 @@ __attribute__((constructor)) static void initializer(void)
 {
 	crashreporter_start();
 
-/********** roothide specfic ********/
-	roothide_launchd_preinit();
-/********** roothide specfic ********/
+	/* RootHide PID 1 isolation: keep launchd constructor on the vanilla 3.x path
+	 * until the recurrent SIGTRAP source is localized. */
 
 	// Retrieve jbroot path early based on our dylib path (<JBROOT>/basebin/launchd) so we can use JBROOT_PATH before boomerang_recoverPrimitives
 	@autoreleasepool {
@@ -217,7 +215,5 @@ __attribute__((constructor)) static void initializer(void)
 	// Part of rootless v2 spec
 	setenv("LAUNCHD_UUID", [NSUUID UUID].UUIDString.UTF8String, 1);
 
-/********** roothide specfic ********/
-roothide_launchd_postinit(firstLoad);
-/********** roothide specfic ********/
+/* RootHide PID 1 isolation: do not install RootHide post-init state in launchd. */
 }
