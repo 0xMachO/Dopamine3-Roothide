@@ -32,6 +32,7 @@ def main() -> int:
     dyldhook = read("BaseBin/dyldhook/src/main.c")
     env_manager = read("Application/Dopamine/Jailbreak/DOEnvironmentManager.m")
     watchdog_makefile = read("BaseBin/watchdoghook/Makefile")
+    environment_manager = read("Application/Dopamine/Jailbreak/DOEnvironmentManager.m")
 
     require("mount_unsandboxed(\"bindfs\"" not in jbctl,
             "jbctl still contains a bindfs mount operation", failures)
@@ -55,6 +56,10 @@ def main() -> int:
             "environment manager still probes a fixed systemhook path", failures)
     require("/var/jb/Library/Frameworks" not in watchdog_makefile,
             "watchdoghook retains a legacy /var/jb RPATH", failures)
+    require("posix_spawn(&pid, argBuf[0], &act, &attr" in environment_manager
+            and "posix_spawnattr_destroy(&attr);" in environment_manager
+            and "return cmd_wait_for_exit(pid);" in environment_manager,
+            "spawnJbctlAsRootWithArgs may race Bootstrap finalization", failures)
 
     # Block accidental reintroduction in the production sources. Dynamic aliases
     # deliberately include a suffix and are allowed by this expression.
