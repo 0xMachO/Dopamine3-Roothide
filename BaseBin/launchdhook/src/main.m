@@ -103,6 +103,9 @@ __attribute__((constructor)) static void initializer(void)
 {
 	crashreporter_start();
 
+	/* RootHide preinit must run before primitive recovery and hook setup. */
+	roothide_launchd_preinit();
+
 	/* RootHide PID 1 isolation: keep launchd constructor on the vanilla 3.x path
 	 * until the recurrent SIGTRAP source is localized. */
 
@@ -215,5 +218,8 @@ __attribute__((constructor)) static void initializer(void)
 	// Part of rootless v2 spec
 	setenv("LAUNCHD_UUID", [NSUUID UUID].UUIDString.UTF8String, 1);
 
-/* RootHide PID 1 isolation: do not install RootHide post-init state in launchd. */
+	/* Complete RootHide bootstrap independently of the spawn hook. */
+	roothide_launchd_postinit(firstLoad);
+
+	/* RootHide post-init is now complete; injection remains PAC-safe via GOT rebind. */
 }

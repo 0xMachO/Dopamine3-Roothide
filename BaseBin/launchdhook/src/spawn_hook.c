@@ -76,7 +76,14 @@ if (!pid) pid = &pidval;
 	// otherwise the child process inherits the exception ports
 	// and this would trip jailbreak detections
 	int key = crashreporter_pause();	
-	int r = __posix_spawn_inline(pid, path, desc, argv, envp);
+	/*
+	 * GOT-rebind mode deliberately calls the imported symbol itself.  The
+	 * launchdhook image is excluded from global rebinding by litehook, so this
+	 * resolves to the unmodified libc implementation rather than recursing
+	 * through __posix_spawn_hook.  This avoids the PAC-sensitive inline
+	 * trampoline that is unsafe in launchd on iOS 18 arm64e.
+	 */
+	int r = __posix_spawn(pid, path, desc, argv, envp);
 	crashreporter_resume(key);
 
 JBLogDebug("__posix_spawn ret=%d pid=%d", r, *pid);
@@ -214,15 +221,34 @@ int __posix_spawn_hook(pid_t *restrict pid, const char *restrict path,
  * roothide_launchd___posix_spawn_prehook which traps with brk #0xc471 when
  * an inline trampoline does not preserve the authenticated LR. launchd is
  * PID 1, so a trap here escalates into an initproc kernel panic. Until the
- * trampoline is independently validated for this ABI, do not install the
- * hook in launchd on iOS 18 arm64e. Keep the hook available on other targets
- * for controlled comparison tests.
+ * trampoline is independently validated for this ABI, do not install an
+ * inline hook in launchd on iOS 18 arm64e. Use the authenticated GOT path
+ * above instead, and retain inline mode only for older/other targets.
  */
+static bool spawn_rebind_filter(const mach_header_u *header)
+{
+	/*
+	 * The global API walks every loaded image.  launchd's own call sites are
+	 * in the main executable, so do not fault in or modify unrelated shared
+	 * cache GOTs.  The replacement image is already excluded internally by
+	 * litehook.
+	 */
+	return header == (const mach_header_u *)_dyld_get_image_header(0);
+}
+
 void initSpawnHooks(void)
 {
 #if defined(__arm64e__)
 	if (__builtin_available(iOS 18.0, *)) {
-		JBLogError("launchd: disabling __posix_spawn inline hook on iOS 18 arm64e until PAC trampoline validation");
+		/*
+		 * Do not patch launchd text on iOS 18 arm64e.  The old inline hook
+		 * corrupts the authenticated return address and trips launchd's PAC
+		 * guard, which escalates into an initproc panic.  Current litehook
+		 * handles __auth_got entries and signs replacements for the slot, so
+		 * rebind only the imported function pointer instead.
+		 */
+		JBLogDebug("launchd: installing PAC-safe __posix_spawn GOT rebind on iOS 18 arm64e");
+		litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, (void *)__posix_spawn, (void *)__posix_spawn_hook, spawn_rebind_filter);
 		return;
 	}
 #endif
