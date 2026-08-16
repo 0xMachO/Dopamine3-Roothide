@@ -464,6 +464,54 @@ int posix_spawn_hook_shared(pid_t *restrict pid,
 	return r;
 }
 
+/*
+ * posix_spawnp has the public ABI while __posix_spawn receives the private
+ * descriptor used above.  Build a descriptor view over attrp so the exact
+ * same RootHide environment/trust policy applies without guessing a private
+ * ABI or patching launchd text.
+ */
+int posix_spawnp_hook_shared(pid_t *restrict pid,
+                             const char *restrict file,
+                             const posix_spawn_file_actions_t *restrict file_actions,
+                             const posix_spawnattr_t *restrict attrp,
+                             char *const argv[restrict],
+                             char *const envp[restrict],
+                             void *orig,
+                             int (*trust_binary)(const char *path),
+                             int (*set_process_debugged)(uint64_t pid, bool fullyDebugged),
+                             double jetsamMultiplier)
+{
+	int (*posix_spawnp_orig)(pid_t *restrict, const char *restrict,
+			const posix_spawn_file_actions_t *restrict,
+			const posix_spawnattr_t *restrict,
+			char *const[restrict], char *const[restrict]) = orig;
+
+	struct _posix_spawn_args_desc desc = {0};
+	if (attrp) desc.attrp = *attrp;
+
+	int r = spawn_exec_hook_common(false, file, argv, envp, &desc,
+			trust_binary, jetsamMultiplier,
+			^int(pid_t *pidOut, char *const envp_patched[restrict]) {
+				int rr = posix_spawnp_orig(pid ?: pidOut, file, file_actions, attrp,
+						argv, envp_patched);
+				if (rr == 0 && pid && pidOut) {
+					*pidOut = *pid;
+				}
+				return rr;
+			});
+
+	if (r == 0 && pid && desc.attrp) {
+		short flags = 0;
+		posix_spawnattr_t attr = desc.attrp;
+		if (posix_spawnattr_getflags(&attr, &flags) == 0 &&
+				(flags & POSIX_SPAWN_START_SUSPENDED)) {
+			set_process_debugged(*pid, false);
+		}
+	}
+
+	return r;
+}
+
 kern_return_t vm_allocate_nearby(vm_map_t target_task, vm_address_t from_area, vm_size_t from_area_size, vm_address_t *address, vm_size_t size, uint64_t limit)
 {
 	if (from_area != 0 && from_area_size > 0 && address) {

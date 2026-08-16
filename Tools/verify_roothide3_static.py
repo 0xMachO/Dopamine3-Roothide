@@ -35,6 +35,7 @@ def main() -> int:
     environment_manager = read("Application/Dopamine/Jailbreak/DOEnvironmentManager.m")
     jbserver_domain = read("BaseBin/launchdhook/src/jbserver/jbdomain_dopamine.c")
     trustcache_fs = read("BaseBin/libjailbreak/src/trustcache_fs.c")
+    spawn_hook = read("BaseBin/launchdhook/src/spawn_hook.c")
     require("mount_unsandboxed(\"bindfs\"" not in jbctl,
             "jbctl still contains a bindfs mount operation", failures)
     require("setFakelibMounted" not in jailbreaker and "setPrivatePrebootProtected" not in jailbreaker,
@@ -68,6 +69,10 @@ def main() -> int:
             "RootHide does not stage the alias app-side and safely adopt it in launchd", failures)
     require("systemhook_strip_injection(&envc)" in launchd,
             "launchd blacklist path does not strip inherited injection", failures)
+    require("posix_spawnp_hook_shared" in common
+            and "(void *)posix_spawnp, (void *)posix_spawnp_hook" in spawn_hook
+            and "litehook_hook_function(__posix_spawn, __posix_spawn_hook);" in spawn_hook,
+            "launchd does not cover posix_spawnp with the iOS 18 GOT-safe spawn path", failures)
     require("systemhook_strip_injection(&envc)" in common,
             "shared spawn policy does not strip injection for isolated processes", failures)
     require("access(JBROOT_PATH(\"/.installed_dopamine\"), F_OK)" in jbserver_domain,
