@@ -207,7 +207,24 @@ int __posix_spawn_hook(pid_t *restrict pid, const char *restrict path,
 	return posix_spawn_hook_shared(pid, path, desc, argv, envp, __posix_spawn_orig_wrapper, systemwide_trust_file_by_path, platform_set_process_debugged, jbsetting(jetsamMultiplier));
 }
 
+/*
+ * iOS 18 arm64e safety gate.
+ *
+ * The arm64e launchdhook artifact contains a PAC return-address guard in
+ * roothide_launchd___posix_spawn_prehook which traps with brk #0xc471 when
+ * an inline trampoline does not preserve the authenticated LR. launchd is
+ * PID 1, so a trap here escalates into an initproc kernel panic. Until the
+ * trampoline is independently validated for this ABI, do not install the
+ * hook in launchd on iOS 18 arm64e. Keep the hook available on other targets
+ * for controlled comparison tests.
+ */
 void initSpawnHooks(void)
 {
+#if defined(__arm64e__)
+	if (__builtin_available(iOS 18.0, *)) {
+		JBLogError("launchd: disabling __posix_spawn inline hook on iOS 18 arm64e until PAC trampoline validation");
+		return;
+	}
+#endif
 	litehook_hook_function(__posix_spawn, __posix_spawn_hook);
 }
