@@ -58,10 +58,14 @@ def main() -> int:
             "shared spawn policy still contains the fixed systemhook path", failures)
     require("systemhook.dylib.%016llX" in launchd and "unsandbox(\"/usr/lib\"" in launchd,
             "launchd does not publish a dynamic RootHide systemhook alias", failures)
-    require("if(firstLoad)" in launchd and "exec_set_patch(true);" in launchd
+    alias_prepare_call = jailbreaker.index("roothide_prepare_dynamic_systemhook_alias()")
+    require(alias_prepare_call < injection_marker
+            and "adopt_dynamic_systemhook_alias()" in launchd
+            and "bool systemhookReady = adopt_dynamic_systemhook_alias();" in launchd
+            and "exec_set_patch(systemhookReady);" in launchd
             and "skipping developer-mode sysctl mutation on iOS 18+" in launchd
             and "else {\n\t\t// Only after userspace reboot is it safe to stage and publish the\n\t\t// per-jailbreak alias. Keep injection disabled on any failure.\n\t\tbool systemhookReady = prepare_dynamic_systemhook_alias();" in launchd,
-            "launchd does not preserve firstLoad trust or safely defer the dynamic alias", failures)
+            "RootHide does not stage the alias app-side and safely adopt it in launchd", failures)
     require("systemhook_strip_injection(&envc)" in launchd,
             "launchd blacklist path does not strip inherited injection", failures)
     require("systemhook_strip_injection(&envc)" in common,

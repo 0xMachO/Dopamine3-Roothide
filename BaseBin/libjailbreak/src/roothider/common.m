@@ -706,6 +706,51 @@ void launchd_panic(const char* fmt, ...)
     _exit(0);
 }
 
+/*
+ * Publish RootHide's per-jailbreak systemhook alias before launchdhook is
+ * injected. The app owns valid primitives here; launchd must only adopt this
+ * alias and never perform this namecache mutation on its initial pass.
+ */
+bool roothide_prepare_dynamic_systemhook_alias(void)
+{
+    uint64_t brand = jbinfo(jbrand);
+    char sourcePath[PATH_MAX] = {0};
+    char storedPath[PATH_MAX] = {0};
+    char publishedPath[PATH_MAX] = {0};
+
+    snprintf(sourcePath, sizeof(sourcePath), "%s/basebin/systemhook.dylib", JBROOT_PATH(""));
+    snprintf(storedPath, sizeof(storedPath), "%s/basebin/systemhook.dylib.%016llX", JBROOT_PATH(""), brand);
+    snprintf(publishedPath, sizeof(publishedPath), "/usr/lib/systemhook.dylib.%016llX", brand);
+
+    if (access(sourcePath, R_OK) == 0) {
+        if (access(storedPath, F_OK) == 0 && remove(storedPath) != 0) {
+            JBLogError("RootHide: failed to remove stale staged systemhook: %d", errno);
+            return false;
+        }
+        if (rename(sourcePath, storedPath) != 0) {
+            JBLogError("RootHide: failed to stage dynamic systemhook: %d", errno);
+            return false;
+        }
+    }
+
+    if (access(storedPath, R_OK) != 0) {
+        JBLogError("RootHide: staged systemhook is unavailable: %d", errno);
+        return false;
+    }
+
+    if (access(publishedPath, F_OK) != 0 && unsandbox("/usr/lib", storedPath) != 0) {
+        JBLogError("RootHide: failed to publish dynamic systemhook alias");
+        return false;
+    }
+
+    if (access(publishedPath, F_OK) != 0) {
+        JBLogError("RootHide: published dynamic systemhook alias is unavailable");
+        return false;
+    }
+
+    return true;
+}
+
 static bool exec_patch_enabled = true;
 void exec_set_patch(bool enabled)
 {

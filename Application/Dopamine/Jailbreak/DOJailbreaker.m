@@ -63,6 +63,7 @@ typedef NS_ENUM(NSInteger, JBErrorCode) {
     JBErrorCodeFailedInitFakeLib             = -12,
     JBErrorCodeFailedDuplicateApps           = -13,
     JBErrorCodeFailedBootstrapTrustcache     = -14,
+    JBErrorCodeFailedSystemhookAlias         = -15,
 };
 
 @implementation DOJailbreaker
@@ -679,6 +680,18 @@ void *boomerang_server(struct boomerang_info *info)
     [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Preparing RootHide Runtime") debug:NO];
     *errOut = [self preparePrivateDyld];
     if (*errOut) {
+        [self cleanUpPostExploitation];
+        return;
+    }
+
+    /*
+     * Publish the per-jailbreak systemhook alias while this app owns the
+     * primitives. launchd will only verify and adopt it, avoiding any
+     * namecache mutation from PID 1 during its initial constructor.
+     */
+    [[DOUIManager sharedInstance] sendLog:DOLocalizedString(@"Preparing RootHide Injection") debug:NO];
+    if (!roothide_prepare_dynamic_systemhook_alias()) {
+        *errOut = [NSError errorWithDomain:JBErrorDomain code:JBErrorCodeFailedSystemhookAlias userInfo:@{NSLocalizedDescriptionKey : @"Failed to prepare the RootHide systemhook alias before launchd injection"}];
         [self cleanUpPostExploitation];
         return;
     }

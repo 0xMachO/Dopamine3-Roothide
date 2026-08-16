@@ -52,6 +52,14 @@ int unrestrict(pid_t pid, int (*callback)(pid_t), bool resume);
 
 int unsandbox(const char* dir, const char* file);
 
+/*
+ * Stage RootHide's per-jailbreak systemhook alias while the jailbreak app owns
+ * the primitives, before launchdhook is injected into PID 1.  The launchd
+ * side only adopts the pre-staged alias and never mutates namecache on its
+ * initial pass.
+ */
+bool roothide_prepare_dynamic_systemhook_alias(void);
+
 int ensure_dyld_trustcache(const char* path);
 
 int ensure_randomized_cdhash(const char* inputPath, void* cdhashOut);

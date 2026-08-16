@@ -29,6 +29,24 @@ int roothide_trust_executable_recurse(const char *executablePath, const char *pr
 extern pid_t gSpawnedHookdPid;
 extern mach_port_t gSpawnedHookdPort;
 
+/* Adopt a pre-staged alias without touching namecache from launchd. */
+static bool adopt_dynamic_systemhook_alias(void)
+{
+	uint64_t brand = jbinfo(jbrand);
+	char publishedPath[PATH_MAX] = {0};
+	snprintf(publishedPath, sizeof(publishedPath), "/usr/lib/systemhook.dylib.%016llX", brand);
+
+	if (access(publishedPath, F_OK) != 0) {
+		JBLogError("RootHide: pre-staged systemhook alias is unavailable");
+		return false;
+	}
+	if (!systemhook_set_injection_path(publishedPath)) {
+		JBLogError("RootHide: rejected pre-staged systemhook alias");
+		return false;
+	}
+	return true;
+}
+
 static bool prepare_dynamic_systemhook_alias(void)
 {
 	uint64_t brand = jbinfo(jbrand);
@@ -142,7 +160,12 @@ void roothide_launchd_postinit(bool firstLoad)
 	// before they load libiosexec and other JBROOT runtime libraries.
 	if(firstLoad)
 	{
-		exec_set_patch(true);
+		/* The app staged the dynamic alias before injecting launchdhook. */
+		bool systemhookReady = adopt_dynamic_systemhook_alias();
+		exec_set_patch(systemhookReady);
+		if (!systemhookReady) {
+			JBLogError("RootHide: pre-staged systemhook alias unavailable; injection remains disabled");
+		}
 		if (__builtin_available(iOS 18.0, *)) {
 			// The sysctl OID swap used by older RootHide builds makes Developer Mode
 			// appear disabled on iOS 18. Leave the real developer-mode state intact
