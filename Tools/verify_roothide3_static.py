@@ -69,10 +69,11 @@ def main() -> int:
             "RootHide does not stage the alias app-side and safely adopt it in launchd", failures)
     require("systemhook_strip_injection(&envc)" in launchd,
             "launchd blacklist path does not strip inherited injection", failures)
-    require("posix_spawnp_hook_shared" in common
-            and "(void *)posix_spawnp, (void *)posix_spawnp_hook" in spawn_hook
+    require("(void *)posix_spawnp, (void *)posix_spawnp_hook" in spawn_hook
+            and "return posix_spawnp_orig_passthrough(pid, file, file_actions, attrp, argv, envp);" in spawn_hook
+            and "posix_spawnp_hook_shared(pid, file" not in spawn_hook
             and "litehook_hook_function(__posix_spawn, __posix_spawn_hook);" in spawn_hook,
-            "launchd does not cover posix_spawnp with the iOS 18 GOT-safe spawn path", failures)
+            "iOS 18 launchd posix_spawnp probe is not an isolated GOT pass-through", failures)
     require("systemhook_strip_injection(&envc)" in common,
             "shared spawn policy does not strip injection for isolated processes", failures)
     require("access(JBROOT_PATH(\"/.installed_dopamine\"), F_OK)" in jbserver_domain,

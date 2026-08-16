@@ -92,20 +92,29 @@ JBLogDebug("__posix_spawn ret=%d pid=%d", r, *pid);
 }
 
 /*
- * launchd 22D82 calls posix_spawnp at two authenticated stubs.  This wrapper
- * keeps the public ABI intact and reaches the original through launchdhook,
- * which is excluded from the launchd-only GOT rebind.
+ * iOS 18 arm64e diagnostic stage 2A.
+ *
+ * launchd reaches two authenticated posix_spawnp stubs.  The preceding
+ * full-policy adapter correlated with an initproc exit, so this probe changes
+ * exactly one thing: the launchd __auth_got slot now targets a wrapper that
+ * immediately forwards the untouched public ABI to the original symbol in
+ * launchdhook.  It deliberately performs no crashreporter pause, logging,
+ * trust-cache operation, environment mutation, alias access, attribute write,
+ * persona change, Jetsam adjustment, or early-boot state transition.
+ *
+ * litehook excludes launchdhook (the replacement image) from the global
+ * rebind, so the call below resolves to its original libSystem import rather
+ * than recursing through the launchd slot.  A panic in this probe invalidates
+ * posix_spawnp GOT rebinding itself for this target; a clean boot instead
+ * isolates the fault to the removed policy side effects.
  */
-static int posix_spawnp_orig_wrapper(pid_t *restrict pid,
+static int posix_spawnp_orig_passthrough(pid_t *restrict pid,
 		const char *restrict file,
 		const posix_spawn_file_actions_t *restrict file_actions,
 		const posix_spawnattr_t *restrict attrp,
 		char *const argv[restrict], char *const envp[restrict])
 {
-	int key = crashreporter_pause();
-	int r = posix_spawnp(pid, file, file_actions, attrp, argv, envp);
-	crashreporter_resume(key);
-	return r;
+	return posix_spawnp(pid, file, file_actions, attrp, argv, envp);
 }
 
 static int posix_spawnp_hook(pid_t *restrict pid,
@@ -114,27 +123,7 @@ static int posix_spawnp_hook(pid_t *restrict pid,
 		const posix_spawnattr_t *restrict attrp,
 		char *const argv[restrict], char *const envp[restrict])
 {
-	/* RootHide policy requires a concrete executable path; preserve libc PATH
-	 * search unchanged for the rare relative-file call rather than injecting
-	 * an unclassified child. launchd service programs on the target are
-	 * absolute paths and therefore use the shared policy below. */
-	if (!file || file[0] != '/') {
-		return posix_spawnp_orig_wrapper(pid, file, file_actions, attrp, argv, envp);
-	}
-
-	if (gInEarlyBoot) {
-		if (!strcmp(file, "/usr/libexec/xpcproxy")) {
-			early_boot_done();
-		}
-		else {
-			return posix_spawnp_orig_wrapper(pid, file, file_actions, attrp, argv, envp);
-		}
-	}
-
-	JBLogDebug("launchd posix_spawnp path=%s", file);
-	return posix_spawnp_hook_shared(pid, file, file_actions, attrp, argv, envp,
-			posix_spawnp_orig_wrapper, systemwide_trust_file_by_path,
-			platform_set_process_debugged, jbsetting(jetsamMultiplier));
+	return posix_spawnp_orig_passthrough(pid, file, file_actions, attrp, argv, envp);
 }
 
 int __posix_spawn_hook(pid_t *restrict pid, const char *restrict path,
@@ -293,7 +282,7 @@ void initSpawnHooks(void)
 		 * handles __auth_got entries and signs replacements for the slot, so
 		 * rebind only the imported function pointer instead.
 		 */
-			JBLogDebug("launchd: installing PAC-safe posix_spawn/posix_spawnp GOT rebinds on iOS 18 arm64e");
+			JBLogDebug("launchd: installing PAC-safe posix_spawn GOT rebind and posix_spawnp pass-through probe on iOS 18 arm64e");
 			litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, (void *)__posix_spawn, (void *)__posix_spawn_hook, spawn_rebind_filter);
 			litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, (void *)posix_spawnp, (void *)posix_spawnp_hook, spawn_rebind_filter);
 			return;
